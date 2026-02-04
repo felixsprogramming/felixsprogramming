@@ -256,7 +256,9 @@ body {
 
 .sparkline {
     width: 100%;
-    height: 50px;
+    height: 60px;
+    max-height: 60px;
+    overflow: hidden;
 }
 
 /* ========================================
@@ -268,6 +270,7 @@ body {
     border-radius: var(--radius-lg);
     padding: 28px;
     margin-bottom: 32px;
+    overflow: hidden;
 }
 
 .chart-header {
@@ -341,6 +344,13 @@ body {
 .chart-wrapper {
     position: relative;
     height: 400px;
+    max-height: 400px;
+    overflow: hidden;
+}
+
+.main-chart .chart-wrapper {
+    height: 400px;
+    max-height: 400px;
 }
 
 .chart-wrapper canvas {

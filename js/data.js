@@ -308,75 +308,75 @@ Object.keys(StockData).forEach(key => {
 // ---- News Events (historical, always available) ----
 const NewsEvents = {
     dax: [
-        { date: '2020-03-11', title: 'WHO erklaert COVID-19 zur Pandemie', sentiment: 'negative', impact: -12.2, category: 'pandemic' },
-        { date: '2020-03-23', title: 'Deutschland geht in den ersten Lockdown', sentiment: 'negative', impact: -5.8, category: 'policy' },
-        { date: '2020-11-09', title: 'BioNTech/Pfizer Impfstoff zeigt 95% Wirksamkeit', sentiment: 'positive', impact: +8.4, category: 'pharma' },
-        { date: '2021-06-15', title: 'EZB haelt an lockerer Geldpolitik fest', sentiment: 'positive', impact: +2.1, category: 'policy' },
-        { date: '2022-02-24', title: 'Russland beginnt Invasion der Ukraine', sentiment: 'negative', impact: -8.7, category: 'geopolitics' },
-        { date: '2022-07-21', title: 'EZB erhoeht Zinsen erstmals seit 11 Jahren', sentiment: 'negative', impact: -3.2, category: 'policy' },
-        { date: '2023-01-30', title: 'ChatGPT erreicht 100 Mio. Nutzer - KI-Boom beginnt', sentiment: 'positive', impact: +4.5, category: 'tech' },
-        { date: '2023-10-07', title: 'Hamas-Angriff auf Israel - Nahost-Krise eskaliert', sentiment: 'negative', impact: -2.8, category: 'geopolitics' },
-        { date: '2024-03-15', title: 'EZB signalisiert erste Zinssenkung', sentiment: 'positive', impact: +3.1, category: 'policy' },
-        { date: '2024-11-05', title: 'US-Wahl: Unsicherheit belastet Maerkte', sentiment: 'negative', impact: -1.9, category: 'politics' },
-        { date: '2025-01-20', title: 'Deutsche Wirtschaft zeigt Erholungszeichen', sentiment: 'positive', impact: +2.3, category: 'economy' },
-        { date: '2025-06-15', title: 'Neues EU-Konjunkturpaket beschlossen', sentiment: 'positive', impact: +3.5, category: 'policy' },
-        { date: '2025-09-10', title: 'DAX erreicht neues Allzeithoch', sentiment: 'positive', impact: +1.8, category: 'market' }
+        { date: '2020-03-11', title: 'WHO erklaert COVID-19 zur Pandemie', sentiment: 'negative', impact: -12.2, category: 'pandemic', url: '#' },
+        { date: '2020-03-23', title: 'Deutschland geht in den ersten Lockdown', sentiment: 'negative', impact: -5.8, category: 'policy', url: '#' },
+        { date: '2020-11-09', title: 'BioNTech/Pfizer Impfstoff zeigt 95% Wirksamkeit', sentiment: 'positive', impact: +8.4, category: 'pharma', url: '#' },
+        { date: '2021-06-15', title: 'EZB haelt an lockerer Geldpolitik fest', sentiment: 'positive', impact: +2.1, category: 'policy', url: '#' },
+        { date: '2022-02-24', title: 'Russland beginnt Invasion der Ukraine', sentiment: 'negative', impact: -8.7, category: 'geopolitics', url: '#' },
+        { date: '2022-07-21', title: 'EZB erhoeht Zinsen erstmals seit 11 Jahren', sentiment: 'negative', impact: -3.2, category: 'policy', url: '#' },
+        { date: '2023-01-30', title: 'ChatGPT erreicht 100 Mio. Nutzer - KI-Boom beginnt', sentiment: 'positive', impact: +4.5, category: 'tech', url: '#' },
+        { date: '2023-10-07', title: 'Hamas-Angriff auf Israel - Nahost-Krise eskaliert', sentiment: 'negative', impact: -2.8, category: 'geopolitics', url: '#' },
+        { date: '2024-03-15', title: 'EZB signalisiert erste Zinssenkung', sentiment: 'positive', impact: +3.1, category: 'policy', url: '#' },
+        { date: '2024-11-05', title: 'US-Wahl: Unsicherheit belastet Maerkte', sentiment: 'negative', impact: -1.9, category: 'politics', url: '#' },
+        { date: '2025-01-20', title: 'Deutsche Wirtschaft zeigt Erholungszeichen', sentiment: 'positive', impact: +2.3, category: 'economy', url: '#' },
+        { date: '2025-06-15', title: 'Neues EU-Konjunkturpaket beschlossen', sentiment: 'positive', impact: +3.5, category: 'policy', url: '#' },
+        { date: '2025-09-10', title: 'DAX erreicht neues Allzeithoch', sentiment: 'positive', impact: +1.8, category: 'market', url: '#' }
     ],
     dowjones: [
-        { date: '2020-03-11', title: 'WHO declares COVID-19 global pandemic', sentiment: 'negative', impact: -10.5, category: 'pandemic' },
-        { date: '2020-03-23', title: 'Fed announces unlimited QE program', sentiment: 'positive', impact: +11.4, category: 'policy' },
-        { date: '2020-11-09', title: 'Biden wins US election, vaccine news', sentiment: 'positive', impact: +5.2, category: 'politics' },
-        { date: '2021-01-27', title: 'GameStop Short Squeeze schockt Wall Street', sentiment: 'negative', impact: -2.1, category: 'market' },
-        { date: '2022-01-26', title: 'Fed kuendigt aggressive Zinsplaene an', sentiment: 'negative', impact: -6.3, category: 'policy' },
-        { date: '2022-06-13', title: 'US-Inflation erreicht 9.1% - 40-Jahres-Hoch', sentiment: 'negative', impact: -4.8, category: 'economy' },
-        { date: '2023-03-10', title: 'Silicon Valley Bank Kollaps', sentiment: 'negative', impact: -3.5, category: 'finance' },
-        { date: '2023-05-24', title: 'NVIDIA Q1 Zahlen uebertreffen alle Erwartungen', sentiment: 'positive', impact: +4.2, category: 'tech' },
-        { date: '2024-01-15', title: 'KI-Investments treiben Maerkte auf Rekordhoehen', sentiment: 'positive', impact: +3.8, category: 'tech' },
-        { date: '2024-08-05', title: 'Japan Carry-Trade Crash - globale Panik', sentiment: 'negative', impact: -5.1, category: 'market' },
-        { date: '2025-03-20', title: 'Fed senkt Zinsen auf 3.5%', sentiment: 'positive', impact: +2.9, category: 'policy' },
-        { date: '2025-07-22', title: 'Tech-Sektor Korrektur nach Gewinnwarnungen', sentiment: 'negative', impact: -3.2, category: 'tech' }
+        { date: '2020-03-11', title: 'WHO declares COVID-19 global pandemic', sentiment: 'negative', impact: -10.5, category: 'pandemic', url: '#' },
+        { date: '2020-03-23', title: 'Fed announces unlimited QE program', sentiment: 'positive', impact: +11.4, category: 'policy', url: '#' },
+        { date: '2020-11-09', title: 'Biden wins US election, vaccine news', sentiment: 'positive', impact: +5.2, category: 'politics', url: '#' },
+        { date: '2021-01-27', title: 'GameStop Short Squeeze schockt Wall Street', sentiment: 'negative', impact: -2.1, category: 'market', url: '#' },
+        { date: '2022-01-26', title: 'Fed kuendigt aggressive Zinsplaene an', sentiment: 'negative', impact: -6.3, category: 'policy', url: '#' },
+        { date: '2022-06-13', title: 'US-Inflation erreicht 9.1% - 40-Jahres-Hoch', sentiment: 'negative', impact: -4.8, category: 'economy', url: '#' },
+        { date: '2023-03-10', title: 'Silicon Valley Bank Kollaps', sentiment: 'negative', impact: -3.5, category: 'finance', url: '#' },
+        { date: '2023-05-24', title: 'NVIDIA Q1 Zahlen uebertreffen alle Erwartungen', sentiment: 'positive', impact: +4.2, category: 'tech', url: '#' },
+        { date: '2024-01-15', title: 'KI-Investments treiben Maerkte auf Rekordhoehen', sentiment: 'positive', impact: +3.8, category: 'tech', url: '#' },
+        { date: '2024-08-05', title: 'Japan Carry-Trade Crash - globale Panik', sentiment: 'negative', impact: -5.1, category: 'market', url: '#' },
+        { date: '2025-03-20', title: 'Fed senkt Zinsen auf 3.5%', sentiment: 'positive', impact: +2.9, category: 'policy', url: '#' },
+        { date: '2025-07-22', title: 'Tech-Sektor Korrektur nach Gewinnwarnungen', sentiment: 'negative', impact: -3.2, category: 'tech', url: '#' }
     ],
     apple: [
-        { date: '2020-03-23', title: 'COVID-Crash: Apple Stores weltweit geschlossen', sentiment: 'negative', impact: -8.2, category: 'pandemic' },
-        { date: '2020-07-30', title: 'Apple meldet Rekordquartal trotz Pandemie', sentiment: 'positive', impact: +10.5, category: 'earnings' },
-        { date: '2021-01-27', title: 'iPhone 12 treibt Umsatz auf Allzeithoch', sentiment: 'positive', impact: +5.3, category: 'product' },
-        { date: '2023-06-05', title: 'Apple Vision Pro vorgestellt', sentiment: 'positive', impact: +7.8, category: 'product' },
-        { date: '2024-05-02', title: 'Apple Aktienrueckkauf: $110 Milliarden', sentiment: 'positive', impact: +6.2, category: 'finance' },
-        { date: '2025-09-15', title: 'iPhone 17 Pro mit KI-Features - starke Nachfrage', sentiment: 'positive', impact: +4.1, category: 'product' }
+        { date: '2020-03-23', title: 'COVID-Crash: Apple Stores weltweit geschlossen', sentiment: 'negative', impact: -8.2, category: 'pandemic', url: '#' },
+        { date: '2020-07-30', title: 'Apple meldet Rekordquartal trotz Pandemie', sentiment: 'positive', impact: +10.5, category: 'earnings', url: '#' },
+        { date: '2021-01-27', title: 'iPhone 12 treibt Umsatz auf Allzeithoch', sentiment: 'positive', impact: +5.3, category: 'product', url: '#' },
+        { date: '2023-06-05', title: 'Apple Vision Pro vorgestellt', sentiment: 'positive', impact: +7.8, category: 'product', url: '#' },
+        { date: '2024-05-02', title: 'Apple Aktienrueckkauf: $110 Milliarden', sentiment: 'positive', impact: +6.2, category: 'finance', url: '#' },
+        { date: '2025-09-15', title: 'iPhone 17 Pro mit KI-Features - starke Nachfrage', sentiment: 'positive', impact: +4.1, category: 'product', url: '#' }
     ],
     tesla: [
-        { date: '2020-03-18', title: 'Tesla stoppt Produktion in Fremont', sentiment: 'negative', impact: -15.3, category: 'production' },
-        { date: '2020-08-31', title: 'Tesla Aktiensplit 5:1 - Rally geht weiter', sentiment: 'positive', impact: +12.6, category: 'market' },
-        { date: '2020-12-21', title: 'Tesla wird in S&P 500 aufgenommen', sentiment: 'positive', impact: +8.4, category: 'market' },
-        { date: '2022-04-14', title: 'Musk bietet fuer Twitter - Tesla faellt', sentiment: 'negative', impact: -9.2, category: 'management' },
-        { date: '2023-07-19', title: 'Tesla Gewinnmargen sinken durch Preiskampf', sentiment: 'negative', impact: -8.6, category: 'earnings' },
-        { date: '2024-04-23', title: 'Tesla kuendigt guenstiges Modell fuer 2025 an', sentiment: 'positive', impact: +12.1, category: 'product' },
-        { date: '2025-01-29', title: 'Tesla Robotaxi-Start in mehreren US-Staedten', sentiment: 'positive', impact: +15.3, category: 'product' }
+        { date: '2020-03-18', title: 'Tesla stoppt Produktion in Fremont', sentiment: 'negative', impact: -15.3, category: 'production', url: '#' },
+        { date: '2020-08-31', title: 'Tesla Aktiensplit 5:1 - Rally geht weiter', sentiment: 'positive', impact: +12.6, category: 'market', url: '#' },
+        { date: '2020-12-21', title: 'Tesla wird in S&P 500 aufgenommen', sentiment: 'positive', impact: +8.4, category: 'market', url: '#' },
+        { date: '2022-04-14', title: 'Musk bietet fuer Twitter - Tesla faellt', sentiment: 'negative', impact: -9.2, category: 'management', url: '#' },
+        { date: '2023-07-19', title: 'Tesla Gewinnmargen sinken durch Preiskampf', sentiment: 'negative', impact: -8.6, category: 'earnings', url: '#' },
+        { date: '2024-04-23', title: 'Tesla kuendigt guenstiges Modell fuer 2025 an', sentiment: 'positive', impact: +12.1, category: 'product', url: '#' },
+        { date: '2025-01-29', title: 'Tesla Robotaxi-Start in mehreren US-Staedten', sentiment: 'positive', impact: +15.3, category: 'product', url: '#' }
     ],
     microsoft: [
-        { date: '2020-03-23', title: 'COVID-Crash trifft auch Microsoft', sentiment: 'negative', impact: -6.5, category: 'pandemic' },
-        { date: '2021-01-26', title: 'Microsoft Cloud-Umsatz waechst um 50%', sentiment: 'positive', impact: +5.8, category: 'earnings' },
-        { date: '2022-01-18', title: 'Microsoft kauft Activision Blizzard fuer $69 Mrd.', sentiment: 'positive', impact: +4.2, category: 'acquisition' },
-        { date: '2023-01-23', title: 'Microsoft investiert $10 Mrd. in OpenAI', sentiment: 'positive', impact: +8.9, category: 'tech' },
-        { date: '2024-07-19', title: 'CrowdStrike-Ausfall trifft Windows-Systeme weltweit', sentiment: 'negative', impact: -3.8, category: 'tech' },
-        { date: '2025-04-10', title: 'Copilot KI treibt Office-365 Umsatz auf Rekord', sentiment: 'positive', impact: +5.1, category: 'product' }
+        { date: '2020-03-23', title: 'COVID-Crash trifft auch Microsoft', sentiment: 'negative', impact: -6.5, category: 'pandemic', url: '#' },
+        { date: '2021-01-26', title: 'Microsoft Cloud-Umsatz waechst um 50%', sentiment: 'positive', impact: +5.8, category: 'earnings', url: '#' },
+        { date: '2022-01-18', title: 'Microsoft kauft Activision Blizzard fuer $69 Mrd.', sentiment: 'positive', impact: +4.2, category: 'acquisition', url: '#' },
+        { date: '2023-01-23', title: 'Microsoft investiert $10 Mrd. in OpenAI', sentiment: 'positive', impact: +8.9, category: 'tech', url: '#' },
+        { date: '2024-07-19', title: 'CrowdStrike-Ausfall trifft Windows-Systeme weltweit', sentiment: 'negative', impact: -3.8, category: 'tech', url: '#' },
+        { date: '2025-04-10', title: 'Copilot KI treibt Office-365 Umsatz auf Rekord', sentiment: 'positive', impact: +5.1, category: 'product', url: '#' }
     ]
 };
 
 // ---- Current News (overwritten by live data if available) ----
 const CurrentNews = [
-    { title: 'EZB erwaegt weitere Zinssenkung im Maerz', source: 'Reuters', time: 'vor 2 Stunden', sentiment: 'positive', score: 0.72, affectedStocks: ['dax', 'siemens', 'sap'], category: 'policy' },
-    { title: 'NVIDIA meldet Rekordumsatz - KI-Nachfrage ungebrochen', source: 'Bloomberg', time: 'vor 3 Stunden', sentiment: 'positive', score: 0.85, affectedStocks: ['nasdaq', 'microsoft', 'apple'], category: 'tech' },
-    { title: 'US-Arbeitsmarktdaten schwaecher als erwartet', source: 'CNBC', time: 'vor 4 Stunden', sentiment: 'negative', score: -0.45, affectedStocks: ['dowjones', 'sp500'], category: 'economy' },
-    { title: 'Tesla Robotaxi-Expansion nach Europa geplant', source: 'Handelsblatt', time: 'vor 5 Stunden', sentiment: 'positive', score: 0.68, affectedStocks: ['tesla', 'dax'], category: 'product' },
-    { title: 'Apple verhandelt KI-Partnerschaft mit Google', source: 'Wall Street Journal', time: 'vor 6 Stunden', sentiment: 'positive', score: 0.61, affectedStocks: ['apple', 'nasdaq'], category: 'tech' },
-    { title: 'Geopolitische Spannungen in Ostasien eskalieren', source: 'Financial Times', time: 'vor 7 Stunden', sentiment: 'negative', score: -0.58, affectedStocks: ['dax', 'dowjones', 'sp500'], category: 'geopolitics' },
-    { title: 'SAP Cloud-Transformation uebertrifft Analystenerwartungen', source: 'Boerse Frankfurt', time: 'vor 8 Stunden', sentiment: 'positive', score: 0.74, affectedStocks: ['sap', 'dax'], category: 'earnings' },
-    { title: 'Steigende Oelpreise belasten Industrieaktien', source: 'Reuters', time: 'vor 9 Stunden', sentiment: 'negative', score: -0.42, affectedStocks: ['dax', 'siemens', 'dowjones'], category: 'commodities' },
-    { title: 'Microsoft Azure waechst 35% - Cloud-Boom haelt an', source: 'TechCrunch', time: 'vor 10 Stunden', sentiment: 'positive', score: 0.79, affectedStocks: ['microsoft', 'nasdaq', 'sp500'], category: 'tech' },
-    { title: 'Siemens erhaelt Grossauftrag fuer Bahninfrastruktur', source: 'Manager Magazin', time: 'vor 11 Stunden', sentiment: 'positive', score: 0.55, affectedStocks: ['siemens', 'dax'], category: 'business' },
-    { title: 'Fed-Protokoll deutet auf vorsichtigere Zinspolitik hin', source: 'Bloomberg', time: 'vor 12 Stunden', sentiment: 'neutral', score: 0.1, affectedStocks: ['dowjones', 'sp500', 'nasdaq'], category: 'policy' },
-    { title: 'Chipindustrie: Neue Exportbeschraenkungen gegen China', source: 'Handelsblatt', time: 'vor 14 Stunden', sentiment: 'negative', score: -0.51, affectedStocks: ['nasdaq', 'apple', 'microsoft'], category: 'policy' }
+    { title: 'EZB erwaegt weitere Zinssenkung im Maerz', source: 'Reuters', time: 'vor 2 Stunden', sentiment: 'positive', score: 0.72, affectedStocks: ['dax', 'siemens', 'sap'], category: 'policy', url: '#' },
+    { title: 'NVIDIA meldet Rekordumsatz - KI-Nachfrage ungebrochen', source: 'Bloomberg', time: 'vor 3 Stunden', sentiment: 'positive', score: 0.85, affectedStocks: ['nasdaq', 'microsoft', 'apple'], category: 'tech', url: '#' },
+    { title: 'US-Arbeitsmarktdaten schwaecher als erwartet', source: 'CNBC', time: 'vor 4 Stunden', sentiment: 'negative', score: -0.45, affectedStocks: ['dowjones', 'sp500'], category: 'economy', url: '#' },
+    { title: 'Tesla Robotaxi-Expansion nach Europa geplant', source: 'Handelsblatt', time: 'vor 5 Stunden', sentiment: 'positive', score: 0.68, affectedStocks: ['tesla', 'dax'], category: 'product', url: '#' },
+    { title: 'Apple verhandelt KI-Partnerschaft mit Google', source: 'Wall Street Journal', time: 'vor 6 Stunden', sentiment: 'positive', score: 0.61, affectedStocks: ['apple', 'nasdaq'], category: 'tech', url: '#' },
+    { title: 'Geopolitische Spannungen in Ostasien eskalieren', source: 'Financial Times', time: 'vor 7 Stunden', sentiment: 'negative', score: -0.58, affectedStocks: ['dax', 'dowjones', 'sp500'], category: 'geopolitics', url: '#' },
+    { title: 'SAP Cloud-Transformation uebertrifft Analystenerwartungen', source: 'Boerse Frankfurt', time: 'vor 8 Stunden', sentiment: 'positive', score: 0.74, affectedStocks: ['sap', 'dax'], category: 'earnings', url: '#' },
+    { title: 'Steigende Oelpreise belasten Industrieaktien', source: 'Reuters', time: 'vor 9 Stunden', sentiment: 'negative', score: -0.42, affectedStocks: ['dax', 'siemens', 'dowjones'], category: 'commodities', url: '#' },
+    { title: 'Microsoft Azure waechst 35% - Cloud-Boom haelt an', source: 'TechCrunch', time: 'vor 10 Stunden', sentiment: 'positive', score: 0.79, affectedStocks: ['microsoft', 'nasdaq', 'sp500'], category: 'tech', url: '#' },
+    { title: 'Siemens erhaelt Grossauftrag fuer Bahninfrastruktur', source: 'Manager Magazin', time: 'vor 11 Stunden', sentiment: 'positive', score: 0.55, affectedStocks: ['siemens', 'dax'], category: 'business', url: '#' },
+    { title: 'Fed-Protokoll deutet auf vorsichtigere Zinspolitik hin', source: 'Bloomberg', time: 'vor 12 Stunden', sentiment: 'neutral', score: 0.1, affectedStocks: ['dowjones', 'sp500', 'nasdaq'], category: 'policy', url: '#' },
+    { title: 'Chipindustrie: Neue Exportbeschraenkungen gegen China', source: 'Handelsblatt', time: 'vor 14 Stunden', sentiment: 'negative', score: -0.51, affectedStocks: ['nasdaq', 'apple', 'microsoft'], category: 'policy', url: '#' }
 ];
 
 // ---- Historical Events (always static) ----

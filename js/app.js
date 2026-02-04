@@ -161,7 +161,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             return '<div class="news-event-item ' + event.sentiment + '">' +
                 '<div class="news-event-date">' + (index + 1) + '. ' + formatDate(event.date) + '</div>' +
-                '<div class="news-event-title">' + event.title + '</div>' +
+                '<div class="news-event-title">' + (event.url ? '<a href="' + event.url + '" target="_blank" rel="noopener">' + event.title + '</a>' : event.title) + '</div>' +
                 '<div class="news-event-impact ' + impactClass + '">Kurseffekt: ' + impactStr + '</div>' +
             '</div>';
         }).join('');
@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     '<span class="news-source">' + item.source + '</span>' +
                     '<span class="news-time">' + item.time + '</span>' +
                 '</div>' +
-                '<div class="news-title">' + item.title + '</div>' +
+                '<div class="news-title">' + (item.url ? '<a href="' + item.url + '" target="_blank" rel="noopener">' + item.title + '</a>' : item.title) + '</div>' +
                 '<span class="news-sentiment-tag ' + item.sentiment + '">' +
                     sentimentLabel(item.sentiment) +
                 '</span>' +
