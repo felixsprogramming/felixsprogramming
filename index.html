@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockPulse - Aktien & News Analyse</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <span class="logo-icon">&#9632;</span>
+            <span class="logo-text">StockPulse</span>
+        </div>
+        <ul class="nav-links" id="nav-links">
+            <li><a href="#dashboard" class="nav-link active" data-section="dashboard">Dashboard</a></li>
+            <li><a href="#correlation" class="nav-link" data-section="correlation">News-Korrelation</a></li>
+            <li><a href="#predictions" class="nav-link" data-section="predictions">Vorhersagen</a></li>
+            <li><a href="#history" class="nav-link" data-section="history">Historische Analyse</a></li>
+        </ul>
+        <div class="nav-hamburger" id="hamburger">
+            <span></span><span></span><span></span>
+        </div>
+    </nav>
+
+    <!-- Dashboard Section -->
+    <section id="dashboard" class="section active">
+        <div class="container">
+            <div class="section-header">
+                <h1>Marktuebersicht</h1>
+                <p class="subtitle">Echtzeit-Ueberblick ueber die wichtigsten Indizes und Aktien</p>
+            </div>
+
+            <!-- Index Cards -->
+            <div class="index-cards">
+                <div class="index-card" data-index="dax">
+                    <div class="index-header">
+                        <span class="index-name">DAX</span>
+                        <span class="index-flag de-flag"></span>
+                    </div>
+                    <div class="index-value" id="dax-value">18.456,23</div>
+                    <div class="index-change positive" id="dax-change">+1,24%</div>
+                    <canvas id="dax-sparkline" class="sparkline"></canvas>
+                </div>
+                <div class="index-card" data-index="dowjones">
+                    <div class="index-header">
+                        <span class="index-name">Dow Jones</span>
+                        <span class="index-flag us-flag"></span>
+                    </div>
+                    <div class="index-value" id="dow-value">38.912,45</div>
+                    <div class="index-change positive" id="dow-change">+0,87%</div>
+                    <canvas id="dow-sparkline" class="sparkline"></canvas>
+                </div>
+                <div class="index-card" data-index="sp500">
+                    <div class="index-header">
+                        <span class="index-name">S&amp;P 500</span>
+                        <span class="index-flag us-flag"></span>
+                    </div>
+                    <div class="index-value" id="sp500-value">5.234,18</div>
+                    <div class="index-change negative" id="sp500-change">-0,32%</div>
+                    <canvas id="sp500-sparkline" class="sparkline"></canvas>
+                </div>
+                <div class="index-card" data-index="nasdaq">
+                    <div class="index-header">
+                        <span class="index-name">NASDAQ</span>
+                        <span class="index-flag us-flag"></span>
+                    </div>
+                    <div class="index-value" id="nasdaq-value">16.789,56</div>
+                    <div class="index-change positive" id="nasdaq-change">+1,56%</div>
+                    <canvas id="nasdaq-sparkline" class="sparkline"></canvas>
+                </div>
+            </div>
+
+            <!-- Main Chart -->
+            <div class="chart-container main-chart">
+                <div class="chart-header">
+                    <h2>Kursentwicklung</h2>
+                    <div class="chart-controls">
+                        <select id="stock-selector" class="select-input">
+                            <option value="dax">DAX</option>
+                            <option value="dowjones">Dow Jones</option>
+                            <option value="apple">Apple (AAPL)</option>
+                            <option value="microsoft">Microsoft (MSFT)</option>
+                            <option value="tesla">Tesla (TSLA)</option>
+                            <option value="siemens">Siemens (SIE)</option>
+                            <option value="sap">SAP (SAP)</option>
+                        </select>
+                        <div class="time-range-buttons">
+                            <button class="time-btn active" data-range="1M">1M</button>
+                            <button class="time-btn" data-range="3M">3M</button>
+                            <button class="time-btn" data-range="6M">6M</button>
+                            <button class="time-btn" data-range="1Y">1Y</button>
+                            <button class="time-btn" data-range="5Y">5Y</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="main-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Top Stocks Grid -->
+            <div class="stocks-grid">
+                <h2>Top Aktien</h2>
+                <div class="stock-table">
+                    <div class="stock-table-header">
+                        <span>Aktie</span>
+                        <span>Kurs</span>
+                        <span>Veraenderung</span>
+                        <span>News-Sentiment</span>
+                    </div>
+                    <div id="stock-list" class="stock-list">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- News Correlation Section -->
+    <section id="correlation" class="section">
+        <div class="container">
+            <div class="section-header">
+                <h1>News-Korrelation</h1>
+                <p class="subtitle">Wie Nachrichten historisch die Kursentwicklung beeinflusst haben</p>
+            </div>
+
+            <div class="correlation-layout">
+                <!-- Timeline Chart with News Markers -->
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h2>Kurs mit News-Events</h2>
+                        <div class="chart-controls">
+                            <select id="correlation-stock-selector" class="select-input">
+                                <option value="dax">DAX</option>
+                                <option value="dowjones">Dow Jones</option>
+                                <option value="apple">Apple (AAPL)</option>
+                                <option value="tesla">Tesla (TSLA)</option>
+                                <option value="microsoft">Microsoft (MSFT)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="correlation-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- News Events List -->
+                <div class="news-events-panel">
+                    <h3>Wichtige News-Events</h3>
+                    <div id="news-events-list" class="news-events-list">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Correlation Statistics -->
+            <div class="correlation-stats">
+                <div class="stat-card">
+                    <div class="stat-icon positive-bg">+</div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="positive-news-impact">+2,4%</span>
+                        <span class="stat-label">Durchschn. Kursanstieg nach positiven News</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon negative-bg">-</div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="negative-news-impact">-3,1%</span>
+                        <span class="stat-label">Durchschn. Kursrueckgang nach negativen News</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon neutral-bg">~</div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="reaction-time">2-5 Tage</span>
+                        <span class="stat-label">Durchschn. Reaktionszeit des Marktes</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon info-bg">#</div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="correlation-score">73%</span>
+                        <span class="stat-label">News-Kurs Korrelation</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Predictions Section -->
+    <section id="predictions" class="section">
+        <div class="container">
+            <div class="section-header">
+                <h1>KI-Vorhersagen</h1>
+                <p class="subtitle">Kursvorhersagen basierend auf aktueller Nachrichtenlage und Sentiment-Analyse</p>
+            </div>
+
+            <div class="disclaimer-banner">
+                <span class="disclaimer-icon">!</span>
+                <p>Diese Vorhersagen basieren auf historischen Korrelationen und Sentiment-Analyse.
+                   Sie stellen keine Anlageberatung dar. Investitionen bergen Risiken.</p>
+            </div>
+
+            <!-- Current News Feed -->
+            <div class="predictions-layout">
+                <div class="current-news-panel">
+                    <h3>Aktuelle Nachrichten</h3>
+                    <div class="news-filter-bar">
+                        <button class="filter-btn active" data-filter="all">Alle</button>
+                        <button class="filter-btn" data-filter="positive">Positiv</button>
+                        <button class="filter-btn" data-filter="negative">Negativ</button>
+                        <button class="filter-btn" data-filter="neutral">Neutral</button>
+                    </div>
+                    <div id="current-news-feed" class="news-feed">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+
+                <!-- Predictions Panel -->
+                <div class="predictions-panel">
+                    <h3>Kurs-Prognosen</h3>
+                    <div id="predictions-list" class="predictions-list">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sentiment Gauge -->
+            <div class="sentiment-section">
+                <h3>Gesamt-Marktsentiment</h3>
+                <div class="sentiment-gauges">
+                    <div class="gauge-container">
+                        <canvas id="sentiment-gauge-dax"></canvas>
+                        <span class="gauge-label">DAX</span>
+                    </div>
+                    <div class="gauge-container">
+                        <canvas id="sentiment-gauge-dow"></canvas>
+                        <span class="gauge-label">Dow Jones</span>
+                    </div>
+                    <div class="gauge-container">
+                        <canvas id="sentiment-gauge-tech"></canvas>
+                        <span class="gauge-label">Tech-Sektor</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Historical Analysis Section -->
+    <section id="history" class="section">
+        <div class="container">
+            <div class="section-header">
+                <h1>Historische Analyse</h1>
+                <p class="subtitle">Detaillierte Analyse vergangener Kursentwicklungen und deren Zusammenhang mit Nachrichtenereignissen</p>
+            </div>
+
+            <!-- Historical Events Timeline -->
+            <div class="timeline-section">
+                <h3>Bedeutende Marktereignisse</h3>
+                <div id="historical-timeline" class="timeline">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+
+            <!-- Comparison Chart -->
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h2>Vergleichsanalyse</h2>
+                    <div class="chart-controls">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="compare-dax" checked> DAX
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="compare-dow" checked> Dow Jones
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="compare-sp500"> S&amp;P 500
+                        </label>
+                    </div>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="comparison-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Key Insights -->
+            <div class="insights-grid">
+                <div class="insight-card">
+                    <h4>COVID-19 Crash (Maerz 2020)</h4>
+                    <p>Der DAX verlor innerhalb von 4 Wochen ueber 38%. Die Erholung auf das Vorkrisenniveau dauerte etwa 11 Monate.</p>
+                    <div class="insight-impact negative">-38,8% in 30 Tagen</div>
+                </div>
+                <div class="insight-card">
+                    <h4>Fed Zinswende (2022)</h4>
+                    <p>Die aggressive Zinserhoehungspolitik der US-Notenbank fuehrte zu einem breiten Markrueckgang, besonders bei Technologieaktien.</p>
+                    <div class="insight-impact negative">-27,5% NASDAQ (YTD)</div>
+                </div>
+                <div class="insight-card">
+                    <h4>KI-Rally (2023-2024)</h4>
+                    <p>Nachrichten ueber Fortschritte in der kuenstlichen Intelligenz trieben Tech-Aktien auf neue Hoechststaende. NVIDIA stieg um ueber 200%.</p>
+                    <div class="insight-impact positive">+240% NVIDIA</div>
+                </div>
+                <div class="insight-card">
+                    <h4>Geopolitische Spannungen (2024)</h4>
+                    <p>Anhaltende geopolitische Unsicherheiten fuehrten zu erhoehter Volatilitaet, besonders bei europaeischen Aktien und im Energiesektor.</p>
+                    <div class="insight-impact neutral">+/-15% Volatilitaet</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-icon">&#9632;</span>
+                    <span>StockPulse</span>
+                </div>
+                <p class="footer-disclaimer">Alle Daten dienen nur zu Informationszwecken.
+                   Keine Anlageberatung. Vergangene Kursentwicklungen sind kein Indikator fuer zukuenftige Ergebnisse.</p>
+                <p class="footer-copyright">&copy; 2026 StockPulse - Aktien &amp; News Analyse</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="js/data.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/predictions.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
