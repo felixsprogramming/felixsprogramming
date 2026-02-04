@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import (
     create_engine, Column, Integer, Float, String, Text, DateTime,
-    Boolean, Index, func, and_
+    Boolean, Index, func, and_, text
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from sqlalchemy.pool import QueuePool
@@ -152,6 +152,20 @@ class SentimentTimeseries(Base):
     )
 
 
+class User(Base):
+    """User accounts for authentication and admin management."""
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(80), unique=True, nullable=False, index=True)
+    email = Column(String(120), unique=True, nullable=False)
+    password_hash = Column(String(256), nullable=False)
+    is_admin = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_login = Column(DateTime, nullable=True)
+
+
 # ---- Database Manager ----
 
 class DatabaseManager:
@@ -177,10 +191,10 @@ class DatabaseManager:
         Base.metadata.create_all(self.engine)
         # Apply SQLite performance pragmas
         with self.engine.connect() as conn:
-            conn.execute("PRAGMA journal_mode=WAL;")
-            conn.execute("PRAGMA synchronous=NORMAL;")
-            conn.execute("PRAGMA cache_size=-64000;")  # 64MB cache
-            conn.execute("PRAGMA temp_store=MEMORY;")
+            conn.execute(text("PRAGMA journal_mode=WAL;"))
+            conn.execute(text("PRAGMA synchronous=NORMAL;"))
+            conn.execute(text("PRAGMA cache_size=-64000;"))  # 64MB cache
+            conn.execute(text("PRAGMA temp_store=MEMORY;"))
             conn.commit()
         logger.info("Database initialized at %s", self.db_url)
 
@@ -423,6 +437,87 @@ class DatabaseManager:
             "predictions": session.query(func.count(Prediction.id)).scalar(),
             "sentiment_records": session.query(func.count(SentimentTimeseries.id)).scalar()
         }
+
+    # ---- User Operations ----
+
+    def create_user(self, session, username, email, password_hash, is_admin=False):
+        """Create a new user. Returns the new User or None if duplicate."""
+        existing = session.query(User).filter(
+            (User.username == username) | (User.email == email)
+        ).first()
+        if existing:
+            return None
+        user = User(
+            username=username,
+            email=email,
+            password_hash=password_hash,
+            is_admin=is_admin
+        )
+        session.add(user)
+        session.flush()  # Populate id before returning
+        return user
+
+    def get_user_by_username(self, session, username):
+        """Get a user by username. Returns User or None."""
+        return session.query(User).filter_by(username=username).first()
+
+    def get_user_by_id(self, session, user_id):
+        """Get a user by id. Returns User or None."""
+        return session.query(User).filter_by(id=user_id).first()
+
+    def get_all_users(self, session):
+        """Return a list of all users."""
+        return session.query(User).order_by(User.created_at.asc()).all()
+
+    def update_user_last_login(self, session, user_id):
+        """Set last_login to the current UTC time."""
+        user = session.query(User).filter_by(id=user_id).first()
+        if user:
+            user.last_login = datetime.utcnow()
+
+    def update_user(self, session, user_id, **kwargs):
+        """Update user fields (email, is_admin, is_active). Returns the updated User or None."""
+        user = session.query(User).filter_by(id=user_id).first()
+        if not user:
+            return None
+        allowed_fields = {"email", "is_admin", "is_active"}
+        for field, value in kwargs.items():
+            if field in allowed_fields:
+                setattr(user, field, value)
+        return user
+
+    def delete_user(self, session, user_id):
+        """Delete a user by id. Returns True if deleted, False if not found."""
+        user = session.query(User).filter_by(id=user_id).first()
+        if not user:
+            return False
+        session.delete(user)
+        return True
+
+    def count_users(self, session):
+        """Return the total user count."""
+        return session.query(func.count(User.id)).scalar()
+
+    def create_default_admin(self, session):
+        """
+        Create an admin/admin user if no users exist (first-time setup).
+        The password hash should be a bcrypt hash of 'admin'.
+        Returns the admin User if created, None if users already exist.
+        """
+        if self.count_users(session) > 0:
+            return None
+        # bcrypt hash of the string 'admin'
+        # This is a pre-computed bcrypt hash so the app does not need bcrypt at import time.
+        default_hash = "$2b$12$LJ3m4ys3Lk0TSwMBfmBc5u0C6XEIbsXCFjKQHargOvnBYMo4AhJSe"
+        admin = self.create_user(
+            session,
+            username="admin",
+            email="admin@stockpulse.local",
+            password_hash=default_hash,
+            is_admin=True
+        )
+        logger.info("Default admin user created (username: admin)")
+        return admin
 
 
 # Global instance

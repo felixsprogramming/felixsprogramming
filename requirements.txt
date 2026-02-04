@@ -7,6 +7,9 @@ sqlalchemy>=2.0.25
 scikit-learn>=1.4.0
 numpy>=1.26.0
 schedule>=1.2.1
+flask>=3.0.0
+flask-login>=0.6.3
+bcrypt>=4.1.2
 # Optional: Uncomment for transformer-based sentiment (requires GPU recommended)
 # transformers>=4.37.0
 # torch>=2.1.0
