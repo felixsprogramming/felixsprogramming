@@ -157,7 +157,25 @@ const PredictionEngine = {
     },
 
     // Generate predictions for all tracked stocks
+    // Returns AI predictions if available, otherwise uses frontend engine
     generateAllPredictions() {
+        if (typeof AIPredictions !== 'undefined' && AIPredictions.length > 0) {
+            return AIPredictions.map(pred => ({
+                stockKey: pred.stock_key || '',
+                stockName: pred.stockName || pred.stock_key || '',
+                direction: pred.direction || 'sideways',
+                directionLabel: pred.direction === 'up' ? 'Steigend' : pred.direction === 'down' ? 'Fallend' : 'Seitwaerts',
+                predictedChange: pred.predicted_change_pct
+                    ? (pred.predicted_change_pct >= 0 ? '+' : '') + pred.predicted_change_pct.toFixed(1) + '%'
+                    : '+/-0.0%',
+                confidence: Math.round((pred.confidence || 0.5) * 100),
+                confidenceLevel: (pred.confidence || 0.5) > 0.7 ? 'high' : (pred.confidence || 0.5) > 0.4 ? 'medium' : 'low',
+                reason: pred.reason || pred.news_summary || 'KI-Analyse basierend auf technischen und News-Daten',
+                newsCount: pred.news_count || 0,
+                timeframe: pred.timeframe || '7 Tage',
+                isAI: true
+            }));
+        }
         const stocks = ['dax', 'dowjones', 'apple', 'microsoft', 'tesla', 'siemens', 'sap'];
         return stocks.map(key => this.generatePrediction(key)).filter(p => p !== null);
     },

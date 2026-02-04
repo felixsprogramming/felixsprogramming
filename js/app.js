@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (hasLiveData) {
         LiveDataLoader.applyToStockData();
         LiveDataLoader.applyToNewsData();
+        LiveDataLoader.applyAIPredictions();
         console.log('[StockPulse] Live crawler data applied successfully');
 
         // Show live indicator
@@ -224,16 +225,53 @@ document.addEventListener('DOMContentLoaded', async function() {
         const list = document.getElementById('predictions-list');
         if (!list) return;
 
-        const predictions = PredictionEngine.generateAllPredictions();
+        // Use AI predictions if available, otherwise fall back to frontend engine
+        let predictions;
+        let isAI = false;
 
-        list.innerHTML = predictions.map(pred => {
+        if (AIPredictions.length > 0) {
+            predictions = AIPredictions.map(pred => ({
+                stockName: pred.stockName || pred.stock_key,
+                direction: pred.direction || 'sideways',
+                predictedChange: pred.predicted_change_pct
+                    ? (pred.predicted_change_pct >= 0 ? '+' : '') + pred.predicted_change_pct.toFixed(1) + '%'
+                    : '+/-0.0%',
+                confidence: Math.round((pred.confidence || 0.5) * 100),
+                confidenceLevel: (pred.confidence || 0.5) > 0.7 ? 'high' : (pred.confidence || 0.5) > 0.4 ? 'medium' : 'low',
+                reason: pred.reason || pred.news_summary || 'KI-Analyse basierend auf technischen und News-Daten',
+                timeframe: pred.timeframe || '7 Tage',
+                isAI: true
+            }));
+            isAI = true;
+        } else {
+            predictions = PredictionEngine.generateAllPredictions();
+        }
+
+        // Model info header
+        let headerHTML = '';
+        if (isAI && AIModelInfo.accuracy > 0) {
+            headerHTML = '<div class="ai-model-info">' +
+                '<span class="ai-badge">KI-Modell</span>' +
+                '<span class="ai-accuracy">Genauigkeit: ' + (AIModelInfo.accuracy * 100).toFixed(1) + '%</span>' +
+                '<span class="ai-samples">' + AIModelInfo.samples + ' Trainingsdaten</span>';
+            if (AIModelInfo.dbStats && AIModelInfo.dbStats.total_prices) {
+                headerHTML += '<span class="ai-db">DB: ' +
+                    AIModelInfo.dbStats.total_prices.toLocaleString('de-DE') + ' Kursdaten, ' +
+                    AIModelInfo.dbStats.total_articles.toLocaleString('de-DE') + ' Artikel</span>';
+            }
+            headerHTML += '</div>';
+        }
+
+        list.innerHTML = headerHTML + predictions.map(pred => {
             const arrow = pred.direction === 'up' ? '&#9650;'
                 : pred.direction === 'down' ? '&#9660;'
                 : '&#9654;';
 
+            const aiTag = pred.isAI ? '<span class="ai-tag">KI</span>' : '';
+
             return '<div class="prediction-card">' +
                 '<div class="prediction-header">' +
-                    '<span class="prediction-stock">' + pred.stockName + '</span>' +
+                    '<span class="prediction-stock">' + pred.stockName + ' ' + aiTag + '</span>' +
                     '<span class="prediction-direction ' + pred.direction + '">' +
                         arrow + ' ' + pred.predictedChange +
                     '</span>' +

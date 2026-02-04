@@ -1,6 +1,7 @@
 """
 StockPulse Crawler - Stock Price Crawler
 Fetches current and historical stock prices using yfinance.
+Stores all data in database - NO LIMITS on history depth or stock count.
 """
 
 import json
@@ -10,7 +11,8 @@ from datetime import datetime, timedelta
 
 import yfinance as yf
 
-from .config import STOCKS, DATA_DIR
+from .config import STOCKS, DATA_DIR, DEFAULT_HISTORY_PERIOD, UPDATE_HISTORY_PERIOD
+from .database import db, PriceHistory
 
 logger = logging.getLogger(__name__)
 
@@ -18,17 +20,10 @@ logger = logging.getLogger(__name__)
 def fetch_stock_data(stock_key, stock_config, period="1y"):
     """
     Fetch historical and current price data for a single stock/index.
-
-    Args:
-        stock_key: Internal key (e.g. 'dax', 'apple')
-        stock_config: Config dict with ticker, name, etc.
-        period: yfinance period string ('1mo', '3mo', '6mo', '1y', '5y')
-
-    Returns:
-        dict with stock data or None on failure
+    No limit on data volume.
     """
     ticker_symbol = stock_config["ticker"]
-    logger.info("Fetching data for %s (%s)...", stock_config["name"], ticker_symbol)
+    logger.info("Fetching %s (%s) period=%s...", stock_config["name"], ticker_symbol, period)
 
     try:
         ticker = yf.Ticker(ticker_symbol)
@@ -38,7 +33,6 @@ def fetch_stock_data(stock_key, stock_config, period="1y"):
             logger.warning("No data returned for %s", ticker_symbol)
             return None
 
-        # Convert to list of {date, open, high, low, close, volume}
         price_data = []
         for date, row in hist.iterrows():
             price_data.append({
@@ -53,7 +47,6 @@ def fetch_stock_data(stock_key, stock_config, period="1y"):
         if len(price_data) < 2:
             return None
 
-        # Current values
         current_price = price_data[-1]["close"]
         prev_price = price_data[-2]["close"]
         change_pct = round((current_price - prev_price) / prev_price * 100, 2)
@@ -64,6 +57,8 @@ def fetch_stock_data(stock_key, stock_config, period="1y"):
             "ticker": ticker_symbol,
             "currency": stock_config["currency"],
             "type": stock_config["type"],
+            "sector": stock_config.get("sector", ""),
+            "exchange": stock_config.get("exchange", ""),
             "currentPrice": current_price,
             "previousClose": prev_price,
             "changePercent": change_pct,
@@ -79,45 +74,70 @@ def fetch_stock_data(stock_key, stock_config, period="1y"):
         return None
 
 
-def fetch_all_stocks():
-    """
-    Fetch data for all configured stocks and indices.
+def store_stock_in_db(session, stock_key, stock_config, result):
+    """Store stock metadata and price history in database."""
+    db.upsert_stock(
+        session,
+        key=stock_key,
+        ticker=stock_config["ticker"],
+        name=stock_config["name"],
+        currency=stock_config["currency"],
+        stock_type=stock_config["type"],
+        sector=stock_config.get("sector", ""),
+        exchange=stock_config.get("exchange", "")
+    )
 
-    Returns:
-        dict mapping stock_key -> stock data
+    inserted = db.bulk_insert_prices(session, stock_key, result["history"])
+    logger.info("  %s: %d new price records (total history: %d)",
+                stock_key, inserted, len(result["history"]))
+    return inserted
+
+
+def run_stock_crawler(initial=False):
     """
+    Main entry point: fetch all stock data and store in database.
+    On first run (initial=True), fetches maximum history.
+    On subsequent runs, fetches recent data only.
+    """
+    logger.info("=== Starting stock price crawl ===")
+
+    session = db.get_session()
     all_data = {}
+    total_inserted = 0
+
+    # Determine fetch period
+    period = DEFAULT_HISTORY_PERIOD if initial else UPDATE_HISTORY_PERIOD
+
+    # Check if DB has data already
+    existing_count = db.get_price_count(session)
+    if existing_count == 0:
+        logger.info("Empty database detected, fetching full history (period=%s)", DEFAULT_HISTORY_PERIOD)
+        period = DEFAULT_HISTORY_PERIOD
 
     for stock_key, stock_config in STOCKS.items():
-        result = fetch_stock_data(stock_key, stock_config, period="1y")
+        result = fetch_stock_data(stock_key, stock_config, period=period)
         if result:
+            inserted = store_stock_in_db(session, stock_key, stock_config, result)
+            total_inserted += inserted
             all_data[stock_key] = result
         else:
             logger.warning("Skipping %s - no data available", stock_key)
 
+    session.commit()
+
+    # Save JSON for frontend
+    save_stock_json(all_data)
+
+    price_count = db.get_price_count(session)
+    session.close()
+
+    logger.info("=== Stock crawl complete: %d stocks, %d new records, %d total in DB ===",
+                len(all_data), total_inserted, price_count)
     return all_data
 
 
-def fetch_long_history():
-    """
-    Fetch 5-year history for indices (used for historical analysis page).
-
-    Returns:
-        dict mapping index_key -> price history
-    """
-    indices = {k: v for k, v in STOCKS.items() if v["type"] == "index"}
-    long_data = {}
-
-    for stock_key, stock_config in indices.items():
-        result = fetch_stock_data(stock_key, stock_config, period="5y")
-        if result:
-            long_data[stock_key] = result["history"]
-
-    return long_data
-
-
-def save_stock_data(stock_data):
-    """Save stock data to JSON file."""
+def save_stock_json(stock_data):
+    """Save stock data to JSON file for frontend."""
     os.makedirs(DATA_DIR, exist_ok=True)
     filepath = os.path.join(DATA_DIR, "stocks.json")
 
@@ -128,46 +148,3 @@ def save_stock_data(stock_data):
 
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
-
-    logger.info("Stock data saved to %s (%d stocks)", filepath, len(stock_data))
-
-
-def save_long_history(history_data):
-    """Save long-term history to separate JSON file."""
-    os.makedirs(DATA_DIR, exist_ok=True)
-    filepath = os.path.join(DATA_DIR, "history.json")
-
-    output = {
-        "lastCrawl": datetime.now().isoformat(),
-        "indices": history_data
-    }
-
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(output, f, ensure_ascii=False, indent=2)
-
-    logger.info("Long history saved to %s", filepath)
-
-
-def run_stock_crawler():
-    """Main entry point: fetch all stock data and save."""
-    logger.info("=== Starting stock price crawl ===")
-    stock_data = fetch_all_stocks()
-    save_stock_data(stock_data)
-
-    # Fetch long history less frequently (check if file is older than 24h)
-    history_file = os.path.join(DATA_DIR, "history.json")
-    should_fetch_history = True
-
-    if os.path.exists(history_file):
-        mod_time = datetime.fromtimestamp(os.path.getmtime(history_file))
-        if datetime.now() - mod_time < timedelta(hours=24):
-            should_fetch_history = False
-            logger.info("Long history is recent, skipping...")
-
-    if should_fetch_history:
-        logger.info("Fetching long-term history...")
-        long_data = fetch_long_history()
-        save_long_history(long_data)
-
-    logger.info("=== Stock crawl complete: %d stocks updated ===", len(stock_data))
-    return stock_data

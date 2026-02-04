@@ -147,7 +147,39 @@ const LiveDataLoader = {
                 sentimentLabel: sentimentLabel
             });
         });
+    },
+
+    // Apply AI predictions from crawler
+    applyAIPredictions() {
+        if (!this.liveData || !this.liveData.aiPredictions) return;
+
+        AIPredictions.length = 0;
+        this.liveData.aiPredictions.forEach(pred => {
+            AIPredictions.push(pred);
+        });
+
+        // Store model info
+        if (this.liveData.modelInfo) {
+            AIModelInfo.accuracy = this.liveData.modelInfo.accuracy || 0;
+            AIModelInfo.mae = this.liveData.modelInfo.mae || 0;
+            AIModelInfo.samples = this.liveData.modelInfo.samples || 0;
+            AIModelInfo.trainedAt = this.liveData.modelInfo.name || '';
+            AIModelInfo.topFeatures = this.liveData.modelInfo.topFeatures || [];
+        }
+        if (this.liveData.dbStats) {
+            AIModelInfo.dbStats = this.liveData.dbStats;
+        }
+        if (this.liveData.predictionAccuracy) {
+            AIModelInfo.predictionAccuracy = this.liveData.predictionAccuracy;
+        }
     }
+};
+
+// ---- AI Predictions (filled by live data or empty) ----
+const AIPredictions = [];
+const AIModelInfo = {
+    accuracy: 0, mae: 0, samples: 0, trainedAt: '',
+    topFeatures: [], dbStats: {}, predictionAccuracy: {}
 };
 
 // ---- Demo Data Generation (Fallback) ----

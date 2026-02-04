@@ -736,6 +736,47 @@ body {
 }
 
 /* Prediction Cards */
+/* AI Model Info Bar */
+.ai-model-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(37, 99, 235, 0.1));
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-md);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.ai-badge {
+    background: var(--accent);
+    color: #fff;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ai-tag {
+    background: var(--accent);
+    color: #fff;
+    padding: 1px 6px;
+    border-radius: 6px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    vertical-align: middle;
+    margin-left: 4px;
+}
+
+.ai-accuracy { font-weight: 600; color: var(--success); }
+.ai-samples { color: var(--text-secondary); }
+.ai-db { color: var(--text-muted); font-size: 0.8rem; }
+
 .prediction-card {
     padding: 20px;
     border-radius: var(--radius-md);

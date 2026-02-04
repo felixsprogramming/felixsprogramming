@@ -3,3 +3,10 @@ requests>=2.31.0
 feedparser>=6.0.11
 beautifulsoup4>=4.12.3
 lxml>=5.1.0
+sqlalchemy>=2.0.25
+scikit-learn>=1.4.0
+numpy>=1.26.0
+schedule>=1.2.1
+# Optional: Uncomment for transformer-based sentiment (requires GPU recommended)
+# transformers>=4.37.0
+# torch>=2.1.0
