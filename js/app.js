@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         LiveDataLoader.applyToStockData();
         LiveDataLoader.applyToNewsData();
         LiveDataLoader.applyAIPredictions();
+        LiveDataLoader.applyRecommendations();
         console.log('[StockPulse] Live crawler data applied successfully');
 
         // Show live indicator
@@ -35,6 +36,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         dashboard: false,
         correlation: false,
         predictions: false,
+        recommendations: false,
         history: false
     };
 
@@ -80,6 +82,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             case 'dashboard': initDashboard(); break;
             case 'correlation': initCorrelation(); break;
             case 'predictions': initPredictions(); break;
+            case 'recommendations': initRecommendations(); break;
             case 'history': initHistory(); break;
         }
     }
@@ -335,6 +338,103 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (indices.length > 0) {
             ChartModule.createComparisonChart('comparison-chart', indices);
         }
+    }
+
+    // ---- Recommendations ----
+    function initRecommendations() {
+        const container = document.getElementById('recommendations-list');
+        if (!container) return;
+
+        // Render model info header
+        const modelInfoEl = document.getElementById('rec-model-info');
+        if (modelInfoEl && AIModelInfo.accuracy > 0) {
+            let modelHTML = '<div class="ai-model-info">' +
+                '<span class="ai-badge">KI-Modell</span>' +
+                '<span class="ai-accuracy">Genauigkeit: ' + (AIModelInfo.accuracy * 100).toFixed(1) + '%</span>' +
+                '<span class="ai-samples">' + AIModelInfo.samples + ' Trainingsdaten</span>';
+            if (AIModelInfo.dbStats && AIModelInfo.dbStats.total_prices) {
+                modelHTML += '<span class="ai-db">DB: ' +
+                    AIModelInfo.dbStats.total_prices.toLocaleString('de-DE') + ' Kursdaten, ' +
+                    AIModelInfo.dbStats.total_articles.toLocaleString('de-DE') + ' Artikel</span>';
+            }
+            modelHTML += '</div>';
+            modelInfoEl.innerHTML = modelHTML;
+        }
+
+        // Check if recommendations are available
+        if (Recommendations.length === 0) {
+            container.innerHTML = '<div class="empty-state">' +
+                '<p>Noch keine Empfehlungen verf\u00fcgbar. Das KI-Modell generiert Empfehlungen nach dem ersten Crawling-Durchlauf.</p>' +
+                '</div>';
+            return;
+        }
+
+        // Render recommendation cards (up to 20)
+        const maxCards = Math.min(Recommendations.length, 20);
+        let html = '';
+
+        for (let i = 0; i < maxCards; i++) {
+            const rec = Recommendations[i];
+
+            // Direction arrow and color class
+            const isUp = rec.direction === 'up';
+            const isDown = rec.direction === 'down';
+            const arrow = isUp ? '&#9650;' : isDown ? '&#9660;' : '&#9654;';
+            const changeClass = isUp ? 'positive' : isDown ? 'negative' : 'neutral';
+            const changePrefix = rec.predicted_change_pct >= 0 ? '+' : '';
+            const changePct = changePrefix + rec.predicted_change_pct.toFixed(1) + '%';
+
+            // Confidence bar
+            const confidencePct = Math.round((rec.confidence || 0) * 100);
+            const confidenceLevel = confidencePct > 70 ? 'high' : confidencePct > 40 ? 'medium' : 'low';
+
+            // Sources list
+            let sourcesHTML = '';
+            if (rec.sources && rec.sources.length > 0) {
+                sourcesHTML = '<div class="rec-sources"><strong>Quellen:</strong><ul>';
+                rec.sources.forEach(function(src) {
+                    const sentimentDot = src.sentiment === 'positive' ? 'green'
+                        : src.sentiment === 'negative' ? 'red'
+                        : 'gray';
+                    const titleHTML = src.url
+                        ? '<a href="' + src.url + '" target="_blank" rel="noopener">' + (src.title || 'Quelle') + '</a>'
+                        : '<span>' + (src.title || 'Quelle') + '</span>';
+                    const dateHTML = src.date ? ' <span class="rec-source-date">(' + src.date + ')</span>' : '';
+                    sourcesHTML += '<li>' +
+                        '<span class="sentiment-dot" style="background:' + sentimentDot + ';display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;"></span>' +
+                        titleHTML + dateHTML +
+                        '</li>';
+                });
+                sourcesHTML += '</ul></div>';
+            }
+
+            // Timestamp
+            const timestampHTML = rec.timestamp
+                ? '<div class="rec-timestamp">' + rec.timestamp + '</div>'
+                : '';
+
+            html += '<div class="recommendation-card">' +
+                '<div class="rec-header">' +
+                    '<div class="rec-stock-info">' +
+                        '<span class="rec-stock-name">' + rec.stock_name + '</span>' +
+                        '<span class="rec-ticker">' + rec.ticker + '</span>' +
+                        '<span class="ai-tag">KI</span>' +
+                    '</div>' +
+                    '<span class="rec-change ' + changeClass + '">' + arrow + ' ' + changePct + '</span>' +
+                '</div>' +
+                '<div class="rec-confidence">' +
+                    '<span class="confidence-label">Konfidenz: ' + confidencePct + '%</span>' +
+                    '<div class="confidence-bar">' +
+                        '<div class="confidence-fill ' + confidenceLevel + '" style="width:' + confidencePct + '%;"></div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="rec-reasoning">' + (rec.reasoning || '') + '</div>' +
+                sourcesHTML +
+                timestampHTML +
+            '</div>';
+        }
+
+        container.innerHTML = html;
     }
 
     // ---- Utility Functions ----

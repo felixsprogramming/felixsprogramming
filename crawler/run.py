@@ -10,6 +10,7 @@ Usage:
     python -m crawler.run --news           # Only crawl news
     python -m crawler.run --train          # Only train AI model
     python -m crawler.run --predict        # Only generate predictions
+    python -m crawler.run --recommend      # Only generate recommendations (no crawl)
     python -m crawler.run --stats          # Show database statistics
     python -m crawler.run --initial        # First run: fetch max history
 """
@@ -28,7 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from crawler.stock_crawler import run_stock_crawler, save_stock_json
 from crawler.news_crawler import run_news_crawler
 from crawler.database import db
-from crawler.ai_model import predictor
+from crawler.ai_model import predictor, RecommendationEngine
 from crawler.config import CRAWL_INTERVAL, DATA_DIR, STOCKS
 
 # --- Logging Setup ---
@@ -111,6 +112,27 @@ def generate_frontend_data(predictions=None):
                 "topNews": pred.get("top_news_titles", [])
             })
 
+    # Load recommendations if available
+    recommendations_file = os.path.join(DATA_DIR, "recommendations.json")
+    recommendations_data = []
+    if os.path.exists(recommendations_file):
+        try:
+            with open(recommendations_file, "r", encoding="utf-8") as f:
+                rec_json = json.load(f)
+                recommendations_data = rec_json if isinstance(rec_json, list) else rec_json.get("recommendations", [])
+        except (json.JSONDecodeError, IOError) as e:
+            logger.warning("Could not load recommendations.json: %s", e)
+
+    # Load model performance history if available
+    model_performance_file = os.path.join(DATA_DIR, "model_performance.json")
+    model_performance_data = {}
+    if os.path.exists(model_performance_file):
+        try:
+            with open(model_performance_file, "r", encoding="utf-8") as f:
+                model_performance_data = json.load(f)
+        except (json.JSONDecodeError, IOError) as e:
+            logger.warning("Could not load model_performance.json: %s", e)
+
     # Get DB stats
     session = db.get_session()
     stats = db.get_db_stats(session)
@@ -126,6 +148,7 @@ def generate_frontend_data(predictions=None):
             "totalArticles": news_data.get("totalArticles", 0)
         },
         "aiPredictions": ai_predictions,
+        "recommendations": recommendations_data,
         "modelInfo": {
             "name": predictor.training_stats.get("trained_at", "not trained"),
             "accuracy": predictor.training_stats.get("accuracy", 0),
@@ -133,6 +156,7 @@ def generate_frontend_data(predictions=None):
             "samples": predictor.training_stats.get("samples", 0),
             "topFeatures": predictor.training_stats.get("top_features", [])
         },
+        "modelPerformanceHistory": model_performance_data,
         "dbStats": stats,
         "predictionAccuracy": accuracy
     }
@@ -153,6 +177,14 @@ def run_ai_pipeline():
     evaluated = predictor.evaluate_past_predictions(db, session)
     if evaluated > 0:
         logger.info("Evaluated %d past predictions", evaluated)
+
+    # 1b. Self-evaluation and weight adjustment based on past performance
+    try:
+        adjust_result = predictor.evaluate_and_adjust()
+        if adjust_result:
+            logger.info("Self-evaluation complete: %s", adjust_result)
+    except Exception as e:
+        logger.warning("Self-evaluation failed (non-critical): %s", e)
 
     # 2. Train or retrain model
     price_count = db.get_price_count(session)
@@ -213,6 +245,16 @@ def run_ai_pipeline():
         })
 
     session.commit()
+
+    # 5. Generate recommendations from predictions
+    try:
+        engine = RecommendationEngine(db, session, predictor)
+        recommendations = engine.generate_recommendations(max_count=20)
+        engine.save_recommendations_json()
+        logger.info("Generated %d recommendations", len(recommendations))
+    except Exception as e:
+        logger.warning("Recommendation generation failed (non-critical): %s", e)
+
     session.close()
 
     logger.info("=== AI pipeline complete: %d predictions generated ===", len(predictions))
@@ -328,6 +370,51 @@ def show_stats():
         print(f"    Accuracy:        {predictor.training_stats.get('accuracy', 'N/A')}%")
         print(f"    MAE:             {predictor.training_stats.get('mae', 'N/A')}%")
         print(f"    Training samples:{predictor.training_stats.get('samples', 'N/A')}")
+
+    # Recommendation stats
+    recommendations_file = os.path.join(DATA_DIR, "recommendations.json")
+    if os.path.exists(recommendations_file):
+        try:
+            with open(recommendations_file, "r", encoding="utf-8") as f:
+                rec_json = json.load(f)
+                rec_list = rec_json if isinstance(rec_json, list) else rec_json.get("recommendations", [])
+                rec_count = len(rec_list)
+
+                # Find last recommendation time
+                last_rec_time = "N/A"
+                if isinstance(rec_json, dict) and "generated_at" in rec_json:
+                    last_rec_time = rec_json["generated_at"]
+                elif rec_list:
+                    # Try to find timestamp from individual recommendations
+                    timestamps = [r.get("generated_at", r.get("timestamp", "")) for r in rec_list if isinstance(r, dict)]
+                    timestamps = [t for t in timestamps if t]
+                    if timestamps:
+                        last_rec_time = max(timestamps)
+
+                print(f"\n  Recommendations:")
+                print(f"    Active count:    {rec_count}")
+                print(f"    Last generated:  {last_rec_time}")
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"\n  Recommendations: (error loading: {e})")
+    else:
+        print(f"\n  Recommendations:   None generated yet")
+
+    # Model performance history
+    perf_file = os.path.join(DATA_DIR, "model_performance.json")
+    if os.path.exists(perf_file):
+        try:
+            with open(perf_file, "r", encoding="utf-8") as f:
+                perf_data = json.load(f)
+                entries = perf_data if isinstance(perf_data, list) else perf_data.get("history", [])
+                if entries:
+                    latest = entries[-1] if isinstance(entries, list) else {}
+                    print(f"\n  Performance History:")
+                    print(f"    Entries tracked: {len(entries)}")
+                    if isinstance(latest, dict) and "accuracy" in latest:
+                        print(f"    Latest accuracy: {latest['accuracy']}%")
+        except (json.JSONDecodeError, IOError):
+            pass
+
     print()
 
 
@@ -342,6 +429,7 @@ def main():
     parser.add_argument("--predict", action="store_true", help="Only generate predictions")
     parser.add_argument("--stats", action="store_true", help="Show database statistics")
     parser.add_argument("--initial", action="store_true", help="First run: fetch max history")
+    parser.add_argument("--recommend", action="store_true", help="Only generate recommendations (no crawl)")
     parser.add_argument("--interval", type=int, default=None, help="Custom interval in seconds")
 
     args = parser.parse_args()
@@ -356,6 +444,17 @@ def main():
 
     if args.stats:
         show_stats()
+    elif args.recommend:
+        logger.info("=== Generating recommendations only ===")
+        session = db.get_session()
+        if not predictor.is_trained:
+            predictor.load_model()
+        engine = RecommendationEngine(db, session, predictor)
+        recommendations = engine.generate_recommendations(max_count=20)
+        engine.save_recommendations_json()
+        session.close()
+        logger.info("Generated %d recommendations", len(recommendations))
+        generate_frontend_data()
     elif args.stocks:
         run_stock_crawler(initial=args.initial)
         generate_frontend_data()

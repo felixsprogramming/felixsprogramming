@@ -23,6 +23,7 @@
             <li><a href="#correlation" class="nav-link" data-section="correlation">News-Korrelation</a></li>
             <li><a href="#predictions" class="nav-link" data-section="predictions">Vorhersagen</a></li>
             <li><a href="#history" class="nav-link" data-section="history">Historische Analyse</a></li>
+            <li><a href="#recommendations" class="nav-link" data-section="recommendations">Empfehlungen</a></li>
         </ul>
         <div class="nav-hamburger" id="hamburger">
             <span></span><span></span><span></span>
@@ -311,6 +312,59 @@
                     <h4>Geopolitische Spannungen (2024)</h4>
                     <p>Anhaltende geopolitische Unsicherheiten fuehrten zu erhoehter Volatilitaet, besonders bei europaeischen Aktien und im Energiesektor.</p>
                     <div class="insight-impact neutral">+/-15% Volatilitaet</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Recommendations Section -->
+    <section id="recommendations" class="section">
+        <div class="container">
+            <div class="section-header">
+                <h1>Aktien-Empfehlungen</h1>
+                <p class="subtitle">KI-gestuetzte Kaufempfehlungen basierend auf News-Analyse und technischen Indikatoren (max. 20)</p>
+            </div>
+
+            <div class="disclaimer-banner">
+                <span class="disclaimer-icon">!</span>
+                <p>Diese Empfehlungen basieren auf automatisierter News-Analyse und technischen Indikatoren.
+                   Sie stellen keine Anlageberatung dar. Investitionen bergen Risiken. Bitte konsultieren Sie einen Finanzberater.</p>
+            </div>
+
+            <!-- AI Model Info -->
+            <div class="ai-model-info" id="rec-model-info">
+                <span class="ai-badge">KI</span>
+                <span class="ai-accuracy">Modellgenauigkeit: --</span>
+                <span class="ai-samples">Analysierte Quellen: --</span>
+                <span class="ai-db">Letzte Aktualisierung: --</span>
+            </div>
+
+            <!-- Recommendations Grid -->
+            <div id="recommendations-list" class="recommendations-grid">
+                <!-- Recommendation Card Template (filled by JS):
+                <div class="recommendation-card">
+                    <div class="rec-header">
+                        <div>
+                            <span class="rec-stock-name">Apple</span>
+                            <span class="rec-ticker">AAPL</span>
+                        </div>
+                        <span class="rec-change positive">+5,2%</span>
+                    </div>
+                    <div class="rec-confidence">
+                        <div class="rec-confidence-fill" style="width: 82%"></div>
+                    </div>
+                    <p class="rec-reasoning">Starke Quartalsergebnisse und positive Analystenbewertungen deuten auf weiteres Wachstum hin.</p>
+                    <ul class="rec-sources">
+                        <li class="rec-source-item">
+                            <span class="rec-source-sentiment positive"></span>
+                            <span class="rec-source-title">Apple uebertrifft Erwartungen im Q4</span>
+                            <span class="rec-source-date">02.02.2026</span>
+                        </li>
+                    </ul>
+                </div>
+                -->
+                <div class="rec-empty">
+                    <p>Keine Empfehlungen verfuegbar. Die KI-Analyse wird regelmaessig aktualisiert.</p>
                 </div>
             </div>
         </div>

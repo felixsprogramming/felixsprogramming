@@ -172,6 +172,26 @@ const LiveDataLoader = {
         if (this.liveData.predictionAccuracy) {
             AIModelInfo.predictionAccuracy = this.liveData.predictionAccuracy;
         }
+    },
+
+    // Apply AI recommendations from crawler
+    applyRecommendations() {
+        if (!this.liveData || !this.liveData.recommendations) return;
+
+        Recommendations.length = 0;
+        this.liveData.recommendations.forEach(rec => {
+            Recommendations.push({
+                stock_key: rec.stock_key || '',
+                stock_name: rec.stock_name || '',
+                ticker: rec.ticker || '',
+                direction: rec.direction || 'sideways',
+                predicted_change_pct: rec.predicted_change_pct || 0,
+                confidence: rec.confidence || 0,
+                reasoning: rec.reasoning || '',
+                sources: rec.sources || [],
+                timestamp: rec.timestamp || ''
+            });
+        });
     }
 };
 
@@ -181,6 +201,9 @@ const AIModelInfo = {
     accuracy: 0, mae: 0, samples: 0, trainedAt: '',
     topFeatures: [], dbStats: {}, predictionAccuracy: {}
 };
+
+// ---- AI Recommendations (filled by live data or empty) ----
+const Recommendations = [];
 
 // ---- Demo Data Generation (Fallback) ----
 

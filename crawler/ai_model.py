@@ -25,7 +25,7 @@ from collections import defaultdict
 import numpy as np
 
 from .config import (
-    AI_MODEL_DIR, MIN_TRAINING_SAMPLES, PREDICTION_TIMEFRAME_DAYS,
+    AI_MODEL_DIR, DATA_DIR, MIN_TRAINING_SAMPLES, PREDICTION_TIMEFRAME_DAYS,
     USE_TRANSFORMER_SENTIMENT, STOCKS
 )
 
@@ -703,6 +703,589 @@ class StockPredictor:
 
         return evaluated
 
+    def evaluate_and_adjust(self, db_manager, session):
+        """
+        Self-evaluation of past predictions: queries the database for past
+        predictions where we now have actual price data, compares predicted
+        direction and predicted change % against actual outcomes, calculates
+        accuracy metrics, and stores evaluation results back in the Prediction
+        table (was_correct, actual_change_pct).
+
+        Returns:
+            Dict with accuracy metrics including overall_accuracy,
+            direction_accuracy per class, and MAE of % predictions.
+        """
+        from .database import Prediction
+
+        # Step 1: Evaluate all unevaluated predictions that have matured
+        unevaluated = db_manager.get_unevaluated_predictions(session)
+        if not unevaluated:
+            logger.info("No unevaluated predictions found for self-evaluation.")
+            return {"evaluated": 0, "overall_accuracy": 0.0,
+                    "direction_accuracy": {}, "mae_pct": 0.0}
+
+        evaluated_count = 0
+        correct_direction_count = 0
+        absolute_errors = []
+        direction_results = {
+            "up": {"correct": 0, "total": 0},
+            "down": {"correct": 0, "total": 0},
+            "sideways": {"correct": 0, "total": 0},
+        }
+
+        for pred in unevaluated:
+            # Get actual price at/after the prediction target date
+            target_prices = db_manager.get_price_history(
+                session, pred.stock_key, start_date=pred.prediction_date
+            )
+            if not target_prices:
+                continue
+
+            # Get base price (price when prediction was made)
+            created_date = pred.created_at.strftime("%Y-%m-%d")
+            base_prices = db_manager.get_price_history(
+                session, pred.stock_key, start_date=created_date
+            )
+            if not base_prices:
+                continue
+
+            base_price = base_prices[0].close
+            actual_price = target_prices[0].close
+            actual_change_pct = (actual_price / base_price - 1) * 100
+
+            # Determine actual direction using same thresholds as training
+            if actual_change_pct > 1.5:
+                actual_direction = "up"
+            elif actual_change_pct < -1.5:
+                actual_direction = "down"
+            else:
+                actual_direction = "sideways"
+
+            # Store evaluation in DB via existing helper
+            db_manager.evaluate_prediction(session, pred.id, actual_change_pct)
+
+            # Track aggregated metrics
+            evaluated_count += 1
+            was_direction_correct = (pred.direction == actual_direction)
+            if was_direction_correct:
+                correct_direction_count += 1
+
+            if pred.predicted_change_pct is not None:
+                absolute_errors.append(
+                    abs(pred.predicted_change_pct - actual_change_pct)
+                )
+
+            if pred.direction in direction_results:
+                direction_results[pred.direction]["total"] += 1
+                if was_direction_correct:
+                    direction_results[pred.direction]["correct"] += 1
+
+        if evaluated_count > 0:
+            session.commit()
+
+        # Step 2: Calculate accuracy metrics
+        overall_accuracy = (
+            (correct_direction_count / evaluated_count * 100)
+            if evaluated_count > 0 else 0.0
+        )
+
+        direction_accuracy = {}
+        for d, stats in direction_results.items():
+            if stats["total"] > 0:
+                direction_accuracy[d] = round(
+                    stats["correct"] / stats["total"] * 100, 1
+                )
+            else:
+                direction_accuracy[d] = 0.0
+
+        mae = float(np.mean(absolute_errors)) if absolute_errors else 0.0
+
+        metrics = {
+            "evaluated": evaluated_count,
+            "correct": correct_direction_count,
+            "overall_accuracy": round(overall_accuracy, 1),
+            "direction_accuracy": direction_accuracy,
+            "mae_pct": round(mae, 2),
+            "evaluated_at": datetime.now().isoformat(),
+        }
+
+        logger.info(
+            "Self-evaluation complete: %d predictions evaluated, "
+            "%.1f%% direction accuracy, MAE=%.2f%%",
+            evaluated_count, overall_accuracy, mae,
+        )
+
+        return metrics
+
+    def adjust_model_weights(self, db_manager, session):
+        """
+        Adjusts Gradient Boosting model hyperparameters based on evaluation
+        results. Tracks performance history in data/model_performance.json.
+
+        Strategy:
+          - If accuracy < 50%: increase n_estimators, reduce learning_rate
+          - Analyzes feature importance split (technical vs news)
+          - If news features contributed more to correct predictions, increases
+            their weight in the feature vector; otherwise favours technical
+          - Saves adjusted params so next train() call can pick them up
+        """
+        from .database import Prediction
+
+        # Run self-evaluation first to get fresh metrics
+        metrics = self.evaluate_and_adjust(db_manager, session)
+
+        if metrics["evaluated"] == 0:
+            logger.info("No evaluated predictions available for weight adjustment.")
+            return None
+
+        # ---- Load performance history ----
+        perf_path = os.path.join(DATA_DIR, "model_performance.json")
+        if os.path.exists(perf_path):
+            with open(perf_path, "r") as f:
+                performance_history = json.load(f)
+        else:
+            performance_history = {"history": [], "current_params": {}}
+
+        # Initialise current params from history or defaults
+        current_params = {
+            "n_estimators": 200,
+            "learning_rate": 0.1,
+            "max_depth": 5,
+            "min_samples_split": 10,
+            "subsample": 0.8,
+            "feature_weights": {"technical": 1.0, "news": 1.0},
+        }
+        if performance_history.get("current_params"):
+            current_params.update(performance_history["current_params"])
+
+        overall_accuracy = metrics["overall_accuracy"]
+
+        # ---- Hyperparameter adjustment based on accuracy ----
+        if overall_accuracy < 50:
+            # Model is underperforming -- increase complexity
+            current_params["n_estimators"] = min(
+                current_params["n_estimators"] + 50, 500
+            )
+            current_params["learning_rate"] = max(
+                current_params["learning_rate"] * 0.8, 0.01
+            )
+            current_params["max_depth"] = min(
+                current_params["max_depth"] + 1, 8
+            )
+            logger.info(
+                "Accuracy below 50%% (%.1f%%). Adjusting: n_estimators=%d, "
+                "learning_rate=%.4f, max_depth=%d",
+                overall_accuracy,
+                current_params["n_estimators"],
+                current_params["learning_rate"],
+                current_params["max_depth"],
+            )
+        elif overall_accuracy > 70:
+            # Model is performing well -- fine-tune with smaller learning rate
+            current_params["learning_rate"] = max(
+                current_params["learning_rate"] * 0.95, 0.01
+            )
+            logger.info(
+                "Good accuracy (%.1f%%). Fine-tuning learning_rate to %.4f",
+                overall_accuracy, current_params["learning_rate"],
+            )
+
+        # ---- Feature group analysis (technical vs news) ----
+        if self.is_trained and self.direction_model is not None:
+            importances = self.direction_model.feature_importances_
+            # Feature vector layout: indices 0-10 = technical, 11-20 = news
+            technical_importance = float(np.sum(importances[:11]))
+            news_importance = float(np.sum(importances[11:]))
+
+            total_importance = technical_importance + news_importance
+            if total_importance > 0:
+                logger.info(
+                    "Feature importance split: technical=%.3f, news=%.3f",
+                    technical_importance, news_importance,
+                )
+
+            # Evaluate which feature group correlates more with correctness
+            evaluated_preds = (
+                session.query(Prediction)
+                .filter(Prediction.was_correct.isnot(None))
+                .order_by(Prediction.evaluated_at.desc())
+                .limit(200)
+                .all()
+            )
+
+            if evaluated_preds:
+                correct_news_strength = []
+                incorrect_news_strength = []
+                correct_tech_strength = []
+                incorrect_tech_strength = []
+
+                for p in evaluated_preds:
+                    news_signal = abs(p.news_sentiment_avg) if p.news_sentiment_avg else 0
+                    tech_signal = abs(p.technical_signal) if p.technical_signal else 0
+                    if p.was_correct:
+                        correct_news_strength.append(news_signal)
+                        correct_tech_strength.append(tech_signal)
+                    else:
+                        incorrect_news_strength.append(news_signal)
+                        incorrect_tech_strength.append(tech_signal)
+
+                avg_correct_news = (
+                    float(np.mean(correct_news_strength))
+                    if correct_news_strength else 0
+                )
+                avg_incorrect_news = (
+                    float(np.mean(incorrect_news_strength))
+                    if incorrect_news_strength else 0
+                )
+                avg_correct_tech = (
+                    float(np.mean(correct_tech_strength))
+                    if correct_tech_strength else 0
+                )
+                avg_incorrect_tech = (
+                    float(np.mean(incorrect_tech_strength))
+                    if incorrect_tech_strength else 0
+                )
+
+                # Adaptive: if news features contributed more to correct
+                # predictions, weight them higher in the feature vector
+                if avg_correct_news > avg_incorrect_news * 1.2:
+                    current_params["feature_weights"]["news"] = min(
+                        current_params["feature_weights"]["news"] * 1.1, 2.0
+                    )
+                    current_params["feature_weights"]["technical"] = max(
+                        current_params["feature_weights"]["technical"] * 0.95, 0.5
+                    )
+                    logger.info(
+                        "News features outperforming. news_weight=%.2f, tech_weight=%.2f",
+                        current_params["feature_weights"]["news"],
+                        current_params["feature_weights"]["technical"],
+                    )
+                elif avg_correct_tech > avg_incorrect_tech * 1.2:
+                    current_params["feature_weights"]["technical"] = min(
+                        current_params["feature_weights"]["technical"] * 1.1, 2.0
+                    )
+                    current_params["feature_weights"]["news"] = max(
+                        current_params["feature_weights"]["news"] * 0.95, 0.5
+                    )
+                    logger.info(
+                        "Technical features outperforming. tech_weight=%.2f, news_weight=%.2f",
+                        current_params["feature_weights"]["technical"],
+                        current_params["feature_weights"]["news"],
+                    )
+
+        # ---- Persist performance history ----
+        record = {**metrics, "params": current_params}
+        performance_history["history"].append(record)
+        # Keep last 50 entries
+        performance_history["history"] = performance_history["history"][-50:]
+        performance_history["current_params"] = current_params
+
+        os.makedirs(os.path.dirname(perf_path), exist_ok=True)
+        with open(perf_path, "w") as f:
+            json.dump(performance_history, f, indent=2)
+
+        logger.info(
+            "Model weights adjusted and saved. History entries: %d",
+            len(performance_history["history"]),
+        )
+
+        return current_params
+
+    def get_adjusted_params(self):
+        """
+        Load the latest adjusted hyperparameters from the performance JSON.
+        Returns default params if no history exists.
+        """
+        perf_path = os.path.join(DATA_DIR, "model_performance.json")
+        defaults = {
+            "n_estimators": 200,
+            "learning_rate": 0.1,
+            "max_depth": 5,
+            "min_samples_split": 10,
+            "subsample": 0.8,
+            "feature_weights": {"technical": 1.0, "news": 1.0},
+        }
+        if os.path.exists(perf_path):
+            try:
+                with open(perf_path, "r") as f:
+                    data = json.load(f)
+                if data.get("current_params"):
+                    defaults.update(data["current_params"])
+            except (json.JSONDecodeError, IOError):
+                pass
+        return defaults
+
+
+class RecommendationEngine:
+    """
+    Generates buy recommendations based on AI predictions, news sentiment,
+    and technical indicators.  Picks stocks predicted to move up with
+    reasonable confidence, attaches supporting news sources, and produces
+    a human-readable reasoning text.
+    """
+
+    def __init__(self, predictor_instance=None):
+        self.predictor = predictor_instance
+
+    def _get_predictor(self):
+        """Lazy-resolve predictor so the global is available after module load."""
+        if self.predictor is not None:
+            return self.predictor
+        return predictor  # module-level global
+
+    def generate_recommendations(self, db_manager, session, max_count=20):
+        """
+        Generate buy recommendations.
+
+        Process:
+          1. Get current predictions for all stocks.
+          2. Filter for direction == 'up' and confidence > 50%.
+          3. For each candidate, gather 2-3+ news sources from the DB.
+          4. Build reasoning text from sentiment, technicals, and confidence.
+          5. Sort by confidence descending, limit to *max_count*.
+
+        Returns:
+            List of recommendation dicts with: stock_key, stock_name, ticker,
+            direction, predicted_change_pct, confidence, reasoning,
+            sources (list of {title, url, sentiment, date}), timestamp.
+        """
+        pred_engine = self._get_predictor()
+        all_predictions = pred_engine.predict_all(db_manager, session)
+
+        # Filter: "up" direction and confidence > 50%
+        # (confidence in prediction dicts is already 0-100 scale)
+        candidates = [
+            p for p in all_predictions
+            if p["direction"] == "up" and p["confidence"] > 50
+        ]
+
+        recommendations = []
+        for pred in candidates:
+            stock_key = pred["stock_key"]
+            stock_cfg = STOCKS.get(stock_key, {})
+
+            # Gather news articles for this stock (last 7 days)
+            recent_news = db_manager.get_recent_news(
+                session, hours=168, stock_key=stock_key
+            )
+
+            # Build sources list, preferring diverse sources, at least 2-3
+            sources = self._gather_sources(recent_news, min_count=3)
+
+            # Build reasoning
+            reasoning = self._build_reasoning(pred, sources)
+
+            recommendations.append({
+                "stock_key": stock_key,
+                "stock_name": pred.get("stock_name", stock_cfg.get("name", stock_key)),
+                "ticker": stock_cfg.get("ticker", ""),
+                "direction": pred["direction"],
+                "predicted_change_pct": pred["predicted_change_pct"],
+                "confidence": pred["confidence"],
+                "reasoning": reasoning,
+                "sources": sources,
+                "timestamp": datetime.now().isoformat(),
+            })
+
+        # Sort by confidence descending
+        recommendations.sort(key=lambda r: r["confidence"], reverse=True)
+
+        # Limit to max_count
+        recommendations = recommendations[:max_count]
+
+        logger.info(
+            "Generated %d buy recommendations from %d candidates "
+            "(out of %d total predictions).",
+            len(recommendations), len(candidates), len(all_predictions),
+        )
+
+        return recommendations
+
+    @staticmethod
+    def _gather_sources(news_articles, min_count=3):
+        """
+        Pick at least *min_count* news sources for a recommendation,
+        preferring different source names for diversity.
+        """
+        if not news_articles:
+            return []
+
+        # Sort: positive sentiment first, then by recency
+        sorted_news = sorted(
+            news_articles,
+            key=lambda n: (-n.sentiment_score, -(n.published.timestamp() if n.published else 0)),
+        )
+
+        seen_sources = set()
+        sources = []
+
+        for article in sorted_news:
+            source_name = article.source or "Unknown"
+            # Prefer articles from distinct sources
+            is_new_source = source_name not in seen_sources
+            if is_new_source or len(sources) < min_count:
+                sources.append({
+                    "title": article.title,
+                    "url": article.url or "",
+                    "sentiment": article.sentiment,
+                    "sentiment_score": round(article.sentiment_score, 3),
+                    "date": (article.published.isoformat()
+                             if article.published else ""),
+                    "source": source_name,
+                })
+                seen_sources.add(source_name)
+
+            # Stop once we have enough diverse sources (at least min_count,
+            # and at least 2 distinct source names when possible)
+            if len(sources) >= max(min_count, 3) and len(seen_sources) >= 2:
+                break
+
+        # If we still have fewer than min_count, pad from remaining articles
+        if len(sources) < min_count:
+            for article in sorted_news:
+                if not any(s["title"] == article.title for s in sources):
+                    sources.append({
+                        "title": article.title,
+                        "url": article.url or "",
+                        "sentiment": article.sentiment,
+                        "sentiment_score": round(article.sentiment_score, 3),
+                        "date": (article.published.isoformat()
+                                 if article.published else ""),
+                        "source": article.source or "Unknown",
+                    })
+                if len(sources) >= min_count:
+                    break
+
+        return sources
+
+    @staticmethod
+    def _build_reasoning(prediction, sources):
+        """
+        Build a human-readable reasoning text explaining WHY the stock is
+        recommended, based on news sentiment, technical indicators, and
+        model confidence.
+        """
+        parts = []
+        confidence = prediction["confidence"]
+        change = prediction["predicted_change_pct"]
+        sentiment_avg = prediction.get("news_sentiment_avg", 0)
+        tech_signal = prediction.get("technical_signal", 0)
+        news_count = prediction.get("news_count", 0)
+        timeframe = prediction.get("timeframe_days", PREDICTION_TIMEFRAME_DAYS)
+
+        # --- Model confidence ---
+        if confidence > 75:
+            parts.append(
+                f"Hohe Modell-Konfidenz ({confidence}%) fuer einen Kursanstieg "
+                f"von ca. {change:+.1f}% in den naechsten {timeframe} Tagen."
+            )
+        elif confidence > 60:
+            parts.append(
+                f"Moderate Modell-Konfidenz ({confidence}%) fuer "
+                f"ca. {change:+.1f}% Aufwaertsbewegung."
+            )
+        else:
+            parts.append(
+                f"Modell prognostiziert Aufwaertsbewegung ({confidence}% "
+                f"Konfidenz, {change:+.1f}% erwartet)."
+            )
+
+        # --- News sentiment ---
+        if sentiment_avg > 0.3 and news_count > 3:
+            parts.append(
+                f"Unterstuetzt durch stark positive Nachrichtenlage "
+                f"(Sentiment: {sentiment_avg:+.2f}, {news_count} Artikel)."
+            )
+        elif sentiment_avg > 0.1 and news_count > 0:
+            parts.append(
+                f"Leicht positives Nachrichtensentiment "
+                f"({sentiment_avg:+.2f}, {news_count} Artikel)."
+            )
+        elif news_count > 0:
+            parts.append(
+                f"Gemischte Nachrichtenlage "
+                f"({news_count} Artikel, Sentiment: {sentiment_avg:+.2f})."
+            )
+
+        # --- Technical indicators ---
+        if tech_signal > 3:
+            parts.append("Starkes technisches Aufwaertsmomentum.")
+        elif tech_signal > 0:
+            parts.append("Positives kurzfristiges Momentum.")
+        elif tech_signal < -3:
+            parts.append(
+                "Trotz negativem Momentum sieht das Modell Erholungspotenzial."
+            )
+
+        # --- Direction probabilities ---
+        dir_probs = prediction.get("direction_probabilities", {})
+        if dir_probs:
+            up_prob = dir_probs.get("up", 0)
+            down_prob = dir_probs.get("down", 0)
+            if up_prob > 0 and down_prob > 0:
+                parts.append(
+                    f"Wahrscheinlichkeiten: Anstieg {up_prob}%, "
+                    f"Seitwaerts {dir_probs.get('sideways', 0)}%, "
+                    f"Rueckgang {down_prob}%."
+                )
+
+        # --- Top supporting news source ---
+        positive_sources = [
+            s for s in sources if s.get("sentiment") == "positive"
+        ]
+        if positive_sources:
+            top = positive_sources[0]
+            parts.append(
+                f'Positive Berichterstattung u.a.: "{top["title"]}" '
+                f'({top.get("source", "")}).'
+            )
+        elif sources:
+            top = sources[0]
+            parts.append(
+                f'Juengste Meldung: "{top["title"]}" ({top.get("source", "")}).'
+            )
+
+        if not parts:
+            parts.append(
+                "Empfehlung basiert auf KI-Modell, historischen Mustern "
+                "und aktueller Nachrichtenlage."
+            )
+
+        return " ".join(parts)
+
+    def save_recommendations_json(self, db_manager, session, max_count=20):
+        """
+        Generate recommendations and save them to data/recommendations.json.
+
+        Returns:
+            Path to the written JSON file.
+        """
+        recommendations = self.generate_recommendations(
+            db_manager, session, max_count
+        )
+
+        output = {
+            "generated_at": datetime.now().isoformat(),
+            "count": len(recommendations),
+            "max_requested": max_count,
+            "recommendations": recommendations,
+        }
+
+        output_path = os.path.join(DATA_DIR, "recommendations.json")
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(output, f, indent=2, ensure_ascii=False)
+
+        logger.info(
+            "Saved %d recommendations to %s", len(recommendations), output_path
+        )
+
+        return output_path
+
 
 # Global predictor instance
 predictor = StockPredictor()
+
+# Global recommendation engine instance
+recommendation_engine = RecommendationEngine()

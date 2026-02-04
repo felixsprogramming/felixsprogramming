@@ -1238,3 +1238,152 @@ body {
 .loading {
     animation: pulse 1.5s infinite;
 }
+
+/* ========================================
+   Recommendations Section
+   ======================================== */
+.recommendations-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+}
+
+@media (min-width: 768px) {
+    .recommendations-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.recommendation-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--success);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    transition: var(--transition);
+}
+
+.recommendation-card:hover {
+    background: var(--bg-card-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.rec-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.rec-stock-name {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.rec-ticker {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-left: 8px;
+}
+
+.rec-change {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.rec-change.positive {
+    color: var(--success);
+}
+
+.rec-change.negative {
+    color: var(--danger);
+}
+
+.rec-confidence {
+    width: 100%;
+    height: 6px;
+    background: var(--bg-primary);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 14px;
+}
+
+.rec-confidence-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--warning), var(--success));
+    transition: width 0.8s ease;
+}
+
+.rec-reasoning {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 14px;
+}
+
+.rec-sources {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-top: 1px solid var(--border-color);
+    padding-top: 12px;
+}
+
+.rec-source-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+
+.rec-source-item + .rec-source-item {
+    border-top: 1px solid rgba(51, 65, 85, 0.4);
+}
+
+.rec-source-sentiment {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.rec-source-sentiment.positive {
+    background-color: var(--success);
+}
+
+.rec-source-sentiment.negative {
+    background-color: var(--danger);
+}
+
+.rec-source-sentiment.neutral {
+    background-color: var(--neutral);
+}
+
+.rec-source-title {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rec-source-date {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+
+.rec-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 24px;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    background: var(--bg-card);
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-md);
+}
