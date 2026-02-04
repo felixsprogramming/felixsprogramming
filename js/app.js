@@ -3,7 +3,25 @@
    Navigation, rendering, and UI logic
    ======================================== */
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+
+    // ---- Load Live Data from Crawler ----
+    const hasLiveData = await LiveDataLoader.load();
+    if (hasLiveData) {
+        LiveDataLoader.applyToStockData();
+        LiveDataLoader.applyToNewsData();
+        console.log('[StockPulse] Live crawler data applied successfully');
+
+        // Show live indicator
+        const brand = document.querySelector('.nav-brand');
+        if (brand) {
+            const badge = document.createElement('span');
+            badge.className = 'live-badge';
+            badge.textContent = 'LIVE';
+            badge.style.cssText = 'background:#10b981;color:#fff;font-size:0.6rem;padding:2px 6px;border-radius:8px;margin-left:8px;font-weight:700;';
+            brand.appendChild(badge);
+        }
+    }
 
     // ---- Navigation ----
     const navLinks = document.querySelectorAll('.nav-link');

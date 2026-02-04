@@ -1,9 +1,157 @@
 /* ========================================
    StockPulse - Stock & News Data
-   Historical data and news events
+   Loads live data from crawler JSON files,
+   falls back to generated demo data if unavailable.
    ======================================== */
 
-// Helper: Generate realistic stock data from a start value
+// ---- Live Data Loader ----
+const LiveDataLoader = {
+    liveData: null,
+    isLive: false,
+
+    async load() {
+        try {
+            const response = await fetch('data/live_data.json');
+            if (!response.ok) throw new Error('No live data available');
+            this.liveData = await response.json();
+            this.isLive = true;
+            console.log('[StockPulse] Live data loaded:', this.liveData.lastUpdate);
+            return true;
+        } catch (e) {
+            console.log('[StockPulse] No live data found, using demo data.', e.message);
+            this.isLive = false;
+            return false;
+        }
+    },
+
+    applyToStockData() {
+        if (!this.liveData || !this.liveData.stocks) return;
+
+        Object.keys(this.liveData.stocks).forEach(key => {
+            const live = this.liveData.stocks[key];
+            if (!live) return;
+
+            // Update existing StockData entry or create new one
+            if (StockData[key]) {
+                StockData[key].currentValue = live.currentPrice;
+                StockData[key].change = live.changePercent;
+                StockData[key].name = live.name;
+                StockData[key].currency = live.currency;
+
+                // Replace history with real data
+                if (live.history && live.history.length > 0) {
+                    StockData[key].data = live.history.map(h => ({
+                        date: h.date,
+                        value: h.close
+                    }));
+                }
+            } else {
+                // New stock from crawler not in defaults
+                StockData[key] = {
+                    name: live.name,
+                    ticker: live.ticker,
+                    currency: live.currency,
+                    currentValue: live.currentPrice,
+                    change: live.changePercent,
+                    data: (live.history || []).map(h => ({
+                        date: h.date,
+                        value: h.close
+                    }))
+                };
+            }
+        });
+
+        // Update dashboard display values
+        this.updateDashboardValues();
+    },
+
+    applyToNewsData() {
+        if (!this.liveData || !this.liveData.news || !this.liveData.news.articles) return;
+
+        // Replace CurrentNews with live crawled news
+        CurrentNews.length = 0;
+        this.liveData.news.articles.forEach(article => {
+            CurrentNews.push({
+                title: article.title,
+                source: article.source,
+                time: article.relativeTime || 'unbekannt',
+                sentiment: article.sentiment || 'neutral',
+                score: article.sentimentScore || 0,
+                affectedStocks: article.affectedStocks || [],
+                category: article.category || 'general',
+                url: article.url || '',
+                summary: article.summary || ''
+            });
+        });
+
+        // Also update TopStocks table from live data
+        this.updateTopStocks();
+    },
+
+    updateDashboardValues() {
+        const updates = {
+            'dax': { valueEl: 'dax-value', changeEl: 'dax-change' },
+            'dowjones': { valueEl: 'dow-value', changeEl: 'dow-change' },
+            'sp500': { valueEl: 'sp500-value', changeEl: 'sp500-change' },
+            'nasdaq': { valueEl: 'nasdaq-value', changeEl: 'nasdaq-change' }
+        };
+
+        Object.keys(updates).forEach(key => {
+            const stock = StockData[key];
+            if (!stock) return;
+
+            const valueEl = document.getElementById(updates[key].valueEl);
+            const changeEl = document.getElementById(updates[key].changeEl);
+
+            if (valueEl) {
+                valueEl.textContent = stock.currentValue.toLocaleString('de-DE', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            }
+            if (changeEl) {
+                const prefix = stock.change >= 0 ? '+' : '';
+                changeEl.textContent = prefix + stock.change.toFixed(2) + '%';
+                changeEl.className = 'index-change ' + (stock.change >= 0 ? 'positive' : 'negative');
+            }
+        });
+    },
+
+    updateTopStocks() {
+        const stockKeys = ['apple', 'microsoft', 'tesla', 'nvidia', 'sap', 'siemens', 'amazon', 'alphabet'];
+
+        TopStocks.length = 0;
+        stockKeys.forEach(key => {
+            const stock = StockData[key];
+            if (!stock) return;
+
+            // Find sentiment from news
+            const relevantNews = CurrentNews.filter(n => n.affectedStocks.includes(key));
+            let avgSentiment = 0;
+            if (relevantNews.length > 0) {
+                avgSentiment = relevantNews.reduce((sum, n) => sum + n.score, 0) / relevantNews.length;
+            }
+
+            let sentimentType, sentimentLabel;
+            if (avgSentiment > 0.3) { sentimentType = 'positive'; sentimentLabel = 'Bullish'; }
+            else if (avgSentiment < -0.3) { sentimentType = 'negative'; sentimentLabel = 'Bearish'; }
+            else { sentimentType = 'neutral'; sentimentLabel = 'Neutral'; }
+
+            TopStocks.push({
+                name: stock.name,
+                ticker: stock.ticker || key.toUpperCase(),
+                price: stock.currentValue.toLocaleString('de-DE', { minimumFractionDigits: 2 }),
+                change: (stock.change >= 0 ? '+' : '') + stock.change.toFixed(2) + '%',
+                changeType: stock.change >= 0 ? 'positive' : 'negative',
+                sentiment: sentimentType,
+                sentimentLabel: sentimentLabel
+            });
+        });
+    }
+};
+
+// ---- Demo Data Generation (Fallback) ----
+
 function generateStockData(startDate, endDate, startValue, volatility, trend) {
     const data = [];
     const start = new Date(startDate);
@@ -11,7 +159,7 @@ function generateStockData(startDate, endDate, startValue, volatility, trend) {
     let value = startValue;
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        if (d.getDay() === 0 || d.getDay() === 6) continue; // Skip weekends
+        if (d.getDay() === 0 || d.getDay() === 6) continue;
         const change = (Math.random() - 0.48 + trend) * volatility * value / 100;
         value = Math.max(value + change, value * 0.7);
         data.push({
@@ -22,7 +170,7 @@ function generateStockData(startDate, endDate, startValue, volatility, trend) {
     return data;
 }
 
-// Historical stock data (simulated realistic data)
+// Default stock data (used when crawler data is not available)
 const StockData = {
     dax: {
         name: 'DAX',
@@ -53,62 +201,39 @@ const StockData = {
         data: generateStockData('2019-01-01', '2026-01-31', 6700, 2.2, 0.022)
     },
     apple: {
-        name: 'Apple',
-        ticker: 'AAPL',
-        currency: 'USD',
-        currentValue: 213.45,
-        change: 2.15,
+        name: 'Apple', ticker: 'AAPL', currency: 'USD', currentValue: 213.45, change: 2.15,
         data: generateStockData('2019-01-01', '2026-01-31', 38, 2.5, 0.025)
     },
     microsoft: {
-        name: 'Microsoft',
-        ticker: 'MSFT',
-        currency: 'USD',
-        currentValue: 425.80,
-        change: 1.43,
+        name: 'Microsoft', ticker: 'MSFT', currency: 'USD', currentValue: 425.80, change: 1.43,
         data: generateStockData('2019-01-01', '2026-01-31', 100, 2.0, 0.022)
     },
     tesla: {
-        name: 'Tesla',
-        ticker: 'TSLA',
-        currency: 'USD',
-        currentValue: 248.67,
-        change: -2.34,
+        name: 'Tesla', ticker: 'TSLA', currency: 'USD', currentValue: 248.67, change: -2.34,
         data: generateStockData('2019-01-01', '2026-01-31', 22, 4.5, 0.03)
     },
     siemens: {
-        name: 'Siemens',
-        ticker: 'SIE',
-        currency: 'EUR',
-        currentValue: 188.42,
-        change: 0.78,
+        name: 'Siemens', ticker: 'SIE', currency: 'EUR', currentValue: 188.42, change: 0.78,
         data: generateStockData('2019-01-01', '2026-01-31', 95, 1.8, 0.012)
     },
     sap: {
-        name: 'SAP',
-        ticker: 'SAP',
-        currency: 'EUR',
-        currentValue: 196.35,
-        change: 1.89,
+        name: 'SAP', ticker: 'SAP', currency: 'EUR', currentValue: 196.35, change: 1.89,
         data: generateStockData('2019-01-01', '2026-01-31', 90, 2.0, 0.015)
     }
 };
 
-// Apply COVID crash and recovery pattern to data
+// Apply COVID crash pattern
 function applyCrashPattern(data, crashStartDate, crashEndDate, dropPercent, recoveryMonths) {
     const crashStart = new Date(crashStartDate);
     const crashEnd = new Date(crashEndDate);
     const recoveryEnd = new Date(crashEnd);
     recoveryEnd.setMonth(recoveryEnd.getMonth() + recoveryMonths);
-
     let preCrashValue = null;
 
     data.forEach((point, index) => {
         const d = new Date(point.date);
         if (d >= crashStart && d <= crashEnd) {
-            if (!preCrashValue && index > 0) {
-                preCrashValue = data[index - 1].value;
-            }
+            if (!preCrashValue && index > 0) preCrashValue = data[index - 1].value;
             const progress = (d - crashStart) / (crashEnd - crashStart);
             const drop = preCrashValue * dropPercent * Math.sin(progress * Math.PI / 2);
             point.value = Math.round((preCrashValue - drop) * 100) / 100;
@@ -121,13 +246,11 @@ function applyCrashPattern(data, crashStartDate, crashEndDate, dropPercent, reco
     });
 }
 
-// Apply crash patterns to all stocks
 Object.keys(StockData).forEach(key => {
-    // COVID-19 crash (Feb-Mar 2020)
     applyCrashPattern(StockData[key].data, '2020-02-20', '2020-03-23', 0.35, 10);
 });
 
-// News events with stock correlations
+// ---- News Events (historical, always available) ----
 const NewsEvents = {
     dax: [
         { date: '2020-03-11', title: 'WHO erklaert COVID-19 zur Pandemie', sentiment: 'negative', impact: -12.2, category: 'pandemic' },
@@ -162,9 +285,7 @@ const NewsEvents = {
         { date: '2020-03-23', title: 'COVID-Crash: Apple Stores weltweit geschlossen', sentiment: 'negative', impact: -8.2, category: 'pandemic' },
         { date: '2020-07-30', title: 'Apple meldet Rekordquartal trotz Pandemie', sentiment: 'positive', impact: +10.5, category: 'earnings' },
         { date: '2021-01-27', title: 'iPhone 12 treibt Umsatz auf Allzeithoch', sentiment: 'positive', impact: +5.3, category: 'product' },
-        { date: '2022-01-03', title: 'Apple erreicht $3 Billionen Marktkapitalisierung', sentiment: 'positive', impact: +3.1, category: 'market' },
         { date: '2023-06-05', title: 'Apple Vision Pro vorgestellt', sentiment: 'positive', impact: +7.8, category: 'product' },
-        { date: '2024-01-11', title: 'Apple ueberholt Microsoft als wertvollstes Unternehmen', sentiment: 'positive', impact: +2.4, category: 'market' },
         { date: '2024-05-02', title: 'Apple Aktienrueckkauf: $110 Milliarden', sentiment: 'positive', impact: +6.2, category: 'finance' },
         { date: '2025-09-15', title: 'iPhone 17 Pro mit KI-Features - starke Nachfrage', sentiment: 'positive', impact: +4.1, category: 'product' }
     ],
@@ -172,9 +293,7 @@ const NewsEvents = {
         { date: '2020-03-18', title: 'Tesla stoppt Produktion in Fremont', sentiment: 'negative', impact: -15.3, category: 'production' },
         { date: '2020-08-31', title: 'Tesla Aktiensplit 5:1 - Rally geht weiter', sentiment: 'positive', impact: +12.6, category: 'market' },
         { date: '2020-12-21', title: 'Tesla wird in S&P 500 aufgenommen', sentiment: 'positive', impact: +8.4, category: 'market' },
-        { date: '2021-10-25', title: 'Hertz bestellt 100.000 Teslas', sentiment: 'positive', impact: +12.7, category: 'business' },
         { date: '2022-04-14', title: 'Musk bietet fuer Twitter - Tesla faellt', sentiment: 'negative', impact: -9.2, category: 'management' },
-        { date: '2022-12-22', title: 'Musk verkauft weitere Tesla-Aktien', sentiment: 'negative', impact: -11.4, category: 'management' },
         { date: '2023-07-19', title: 'Tesla Gewinnmargen sinken durch Preiskampf', sentiment: 'negative', impact: -8.6, category: 'earnings' },
         { date: '2024-04-23', title: 'Tesla kuendigt guenstiges Modell fuer 2025 an', sentiment: 'positive', impact: +12.1, category: 'product' },
         { date: '2025-01-29', title: 'Tesla Robotaxi-Start in mehreren US-Staedten', sentiment: 'positive', impact: +15.3, category: 'product' }
@@ -184,186 +303,40 @@ const NewsEvents = {
         { date: '2021-01-26', title: 'Microsoft Cloud-Umsatz waechst um 50%', sentiment: 'positive', impact: +5.8, category: 'earnings' },
         { date: '2022-01-18', title: 'Microsoft kauft Activision Blizzard fuer $69 Mrd.', sentiment: 'positive', impact: +4.2, category: 'acquisition' },
         { date: '2023-01-23', title: 'Microsoft investiert $10 Mrd. in OpenAI', sentiment: 'positive', impact: +8.9, category: 'tech' },
-        { date: '2023-02-07', title: 'Bing AI mit ChatGPT Integration vorgestellt', sentiment: 'positive', impact: +4.3, category: 'product' },
-        { date: '2024-01-12', title: 'Microsoft ueberholt Apple als wertvollstes Unternehmen', sentiment: 'positive', impact: +3.7, category: 'market' },
         { date: '2024-07-19', title: 'CrowdStrike-Ausfall trifft Windows-Systeme weltweit', sentiment: 'negative', impact: -3.8, category: 'tech' },
         { date: '2025-04-10', title: 'Copilot KI treibt Office-365 Umsatz auf Rekord', sentiment: 'positive', impact: +5.1, category: 'product' }
     ]
 };
 
-// Current news for predictions
+// ---- Current News (overwritten by live data if available) ----
 const CurrentNews = [
-    {
-        title: 'EZB erwaegt weitere Zinssenkung im Maerz',
-        source: 'Reuters',
-        time: 'vor 2 Stunden',
-        sentiment: 'positive',
-        score: 0.72,
-        affectedStocks: ['dax', 'siemens', 'sap'],
-        category: 'policy'
-    },
-    {
-        title: 'NVIDIA meldet Rekordumsatz - KI-Nachfrage ungebrochen',
-        source: 'Bloomberg',
-        time: 'vor 3 Stunden',
-        sentiment: 'positive',
-        score: 0.85,
-        affectedStocks: ['nasdaq', 'microsoft', 'apple'],
-        category: 'tech'
-    },
-    {
-        title: 'US-Arbeitsmarktdaten schwaecher als erwartet',
-        source: 'CNBC',
-        time: 'vor 4 Stunden',
-        sentiment: 'negative',
-        score: -0.45,
-        affectedStocks: ['dowjones', 'sp500'],
-        category: 'economy'
-    },
-    {
-        title: 'Tesla Robotaxi-Expansion nach Europa geplant',
-        source: 'Handelsblatt',
-        time: 'vor 5 Stunden',
-        sentiment: 'positive',
-        score: 0.68,
-        affectedStocks: ['tesla', 'dax'],
-        category: 'product'
-    },
-    {
-        title: 'Apple verhandelt KI-Partnerschaft mit Google',
-        source: 'Wall Street Journal',
-        time: 'vor 6 Stunden',
-        sentiment: 'positive',
-        score: 0.61,
-        affectedStocks: ['apple', 'nasdaq'],
-        category: 'tech'
-    },
-    {
-        title: 'Geopolitische Spannungen in Ostasien eskalieren',
-        source: 'Financial Times',
-        time: 'vor 7 Stunden',
-        sentiment: 'negative',
-        score: -0.58,
-        affectedStocks: ['dax', 'dowjones', 'sp500'],
-        category: 'geopolitics'
-    },
-    {
-        title: 'SAP Cloud-Transformation uebertrifft Analystenerwartungen',
-        source: 'Boerse Frankfurt',
-        time: 'vor 8 Stunden',
-        sentiment: 'positive',
-        score: 0.74,
-        affectedStocks: ['sap', 'dax'],
-        category: 'earnings'
-    },
-    {
-        title: 'Steigende Oelpreise belasten Industrieaktien',
-        source: 'Reuters',
-        time: 'vor 9 Stunden',
-        sentiment: 'negative',
-        score: -0.42,
-        affectedStocks: ['dax', 'siemens', 'dowjones'],
-        category: 'commodities'
-    },
-    {
-        title: 'Microsoft Azure waechst 35% - Cloud-Boom haelt an',
-        source: 'TechCrunch',
-        time: 'vor 10 Stunden',
-        sentiment: 'positive',
-        score: 0.79,
-        affectedStocks: ['microsoft', 'nasdaq', 'sp500'],
-        category: 'tech'
-    },
-    {
-        title: 'Siemens erhaelt Grossauftrag fuer Bahninfrastruktur',
-        source: 'Manager Magazin',
-        time: 'vor 11 Stunden',
-        sentiment: 'positive',
-        score: 0.55,
-        affectedStocks: ['siemens', 'dax'],
-        category: 'business'
-    },
-    {
-        title: 'Fed-Protokoll deutet auf vorsichtigere Zinspolitik hin',
-        source: 'Bloomberg',
-        time: 'vor 12 Stunden',
-        sentiment: 'neutral',
-        score: 0.1,
-        affectedStocks: ['dowjones', 'sp500', 'nasdaq'],
-        category: 'policy'
-    },
-    {
-        title: 'Chipindustrie: Neue Exportbeschraenkungen gegen China',
-        source: 'Handelsblatt',
-        time: 'vor 14 Stunden',
-        sentiment: 'negative',
-        score: -0.51,
-        affectedStocks: ['nasdaq', 'apple', 'microsoft'],
-        category: 'policy'
-    }
+    { title: 'EZB erwaegt weitere Zinssenkung im Maerz', source: 'Reuters', time: 'vor 2 Stunden', sentiment: 'positive', score: 0.72, affectedStocks: ['dax', 'siemens', 'sap'], category: 'policy' },
+    { title: 'NVIDIA meldet Rekordumsatz - KI-Nachfrage ungebrochen', source: 'Bloomberg', time: 'vor 3 Stunden', sentiment: 'positive', score: 0.85, affectedStocks: ['nasdaq', 'microsoft', 'apple'], category: 'tech' },
+    { title: 'US-Arbeitsmarktdaten schwaecher als erwartet', source: 'CNBC', time: 'vor 4 Stunden', sentiment: 'negative', score: -0.45, affectedStocks: ['dowjones', 'sp500'], category: 'economy' },
+    { title: 'Tesla Robotaxi-Expansion nach Europa geplant', source: 'Handelsblatt', time: 'vor 5 Stunden', sentiment: 'positive', score: 0.68, affectedStocks: ['tesla', 'dax'], category: 'product' },
+    { title: 'Apple verhandelt KI-Partnerschaft mit Google', source: 'Wall Street Journal', time: 'vor 6 Stunden', sentiment: 'positive', score: 0.61, affectedStocks: ['apple', 'nasdaq'], category: 'tech' },
+    { title: 'Geopolitische Spannungen in Ostasien eskalieren', source: 'Financial Times', time: 'vor 7 Stunden', sentiment: 'negative', score: -0.58, affectedStocks: ['dax', 'dowjones', 'sp500'], category: 'geopolitics' },
+    { title: 'SAP Cloud-Transformation uebertrifft Analystenerwartungen', source: 'Boerse Frankfurt', time: 'vor 8 Stunden', sentiment: 'positive', score: 0.74, affectedStocks: ['sap', 'dax'], category: 'earnings' },
+    { title: 'Steigende Oelpreise belasten Industrieaktien', source: 'Reuters', time: 'vor 9 Stunden', sentiment: 'negative', score: -0.42, affectedStocks: ['dax', 'siemens', 'dowjones'], category: 'commodities' },
+    { title: 'Microsoft Azure waechst 35% - Cloud-Boom haelt an', source: 'TechCrunch', time: 'vor 10 Stunden', sentiment: 'positive', score: 0.79, affectedStocks: ['microsoft', 'nasdaq', 'sp500'], category: 'tech' },
+    { title: 'Siemens erhaelt Grossauftrag fuer Bahninfrastruktur', source: 'Manager Magazin', time: 'vor 11 Stunden', sentiment: 'positive', score: 0.55, affectedStocks: ['siemens', 'dax'], category: 'business' },
+    { title: 'Fed-Protokoll deutet auf vorsichtigere Zinspolitik hin', source: 'Bloomberg', time: 'vor 12 Stunden', sentiment: 'neutral', score: 0.1, affectedStocks: ['dowjones', 'sp500', 'nasdaq'], category: 'policy' },
+    { title: 'Chipindustrie: Neue Exportbeschraenkungen gegen China', source: 'Handelsblatt', time: 'vor 14 Stunden', sentiment: 'negative', score: -0.51, affectedStocks: ['nasdaq', 'apple', 'microsoft'], category: 'policy' }
 ];
 
-// Historical events for timeline
+// ---- Historical Events (always static) ----
 const HistoricalEvents = [
-    {
-        date: 'Maerz 2020',
-        title: 'COVID-19 Pandemie - Globaler Boersencrash',
-        description: 'Die WHO erklaert COVID-19 zur Pandemie. Innerhalb von Wochen verlieren die globalen Boersen 30-40% ihres Wertes. Der DAX faellt von 13.800 auf 8.400 Punkte.',
-        impact: '-38,8% (DAX in 30 Tagen)',
-        type: 'negative'
-    },
-    {
-        date: 'November 2020',
-        title: 'BioNTech/Pfizer Impfstoff - Markterholung',
-        description: 'Die Nachricht ueber den wirksamen Impfstoff loest eine massive Rally aus. Vor allem Reise-, Freizeit- und Bankaktien profitieren stark.',
-        impact: '+15,4% (DAX in 30 Tagen)',
-        type: 'positive'
-    },
-    {
-        date: 'Januar 2021',
-        title: 'GameStop Short Squeeze',
-        description: 'Reddit-Kleinanleger treiben GameStop-Aktien um ueber 1.600% nach oben und zwingen Hedgefonds zu Milliardenverluste.',
-        impact: '+1.600% (GME in 2 Wochen)',
-        type: 'positive'
-    },
-    {
-        date: 'Februar 2022',
-        title: 'Russland-Ukraine Krieg',
-        description: 'Der Einmarsch Russlands in die Ukraine fuehrt zu einem Energiepreisschock und einer Neuordnung der globalen Maerkte. Europaeische Aktien besonders betroffen.',
-        impact: '-8,7% (DAX in 1 Woche)',
-        type: 'negative'
-    },
-    {
-        date: 'Januar 2023',
-        title: 'ChatGPT und der KI-Boom',
-        description: 'Der Erfolg von ChatGPT loest einen beispiellosen KI-Investitionsboom aus. Tech-Aktien steigen massiv, NVIDIA wird zum Star der Boerse.',
-        impact: '+240% (NVIDIA in 12 Monaten)',
-        type: 'positive'
-    },
-    {
-        date: 'Maerz 2023',
-        title: 'Silicon Valley Bank Kollaps',
-        description: 'Die SVB kollabiert nach einem Bank-Run. Kurzfristige Panik erfasst den Bankensektor, wird aber durch schnelles Eingreifen der Regulierer eingedaemmt.',
-        impact: '-3,5% (Dow Jones in 1 Woche)',
-        type: 'negative'
-    },
-    {
-        date: 'August 2024',
-        title: 'Japan Carry-Trade Crash',
-        description: 'Die ueberraschende Zinsanpassung der Bank of Japan fuehrt zu einer Aufloesung massiver Carry-Trades und einem globalen Flash-Crash.',
-        impact: '-12,4% (Nikkei an 1 Tag)',
-        type: 'negative'
-    },
-    {
-        date: 'Januar 2025',
-        title: 'KI-Integration im Mainstream',
-        description: 'Grosse Unternehmen berichten ueber massive Produktivitaetssteigerungen durch KI-Tools. Der Tech-Sektor erreicht neue Hoechststaende.',
-        impact: '+18% (NASDAQ in 3 Monaten)',
-        type: 'positive'
-    }
+    { date: 'Maerz 2020', title: 'COVID-19 Pandemie - Globaler Boersencrash', description: 'Die WHO erklaert COVID-19 zur Pandemie. Innerhalb von Wochen verlieren die globalen Boersen 30-40% ihres Wertes.', impact: '-38,8% (DAX in 30 Tagen)', type: 'negative' },
+    { date: 'November 2020', title: 'BioNTech/Pfizer Impfstoff - Markterholung', description: 'Die Nachricht ueber den wirksamen Impfstoff loest eine massive Rally aus.', impact: '+15,4% (DAX in 30 Tagen)', type: 'positive' },
+    { date: 'Januar 2021', title: 'GameStop Short Squeeze', description: 'Reddit-Kleinanleger treiben GameStop-Aktien um ueber 1.600% nach oben.', impact: '+1.600% (GME in 2 Wochen)', type: 'positive' },
+    { date: 'Februar 2022', title: 'Russland-Ukraine Krieg', description: 'Der Einmarsch Russlands in die Ukraine fuehrt zu einem Energiepreisschock.', impact: '-8,7% (DAX in 1 Woche)', type: 'negative' },
+    { date: 'Januar 2023', title: 'ChatGPT und der KI-Boom', description: 'Der Erfolg von ChatGPT loest einen beispiellosen KI-Investitionsboom aus.', impact: '+240% (NVIDIA in 12 Monaten)', type: 'positive' },
+    { date: 'Maerz 2023', title: 'Silicon Valley Bank Kollaps', description: 'Die SVB kollabiert nach einem Bank-Run.', impact: '-3,5% (Dow Jones in 1 Woche)', type: 'negative' },
+    { date: 'August 2024', title: 'Japan Carry-Trade Crash', description: 'Zinsanpassung der Bank of Japan fuehrt zu globalem Flash-Crash.', impact: '-12,4% (Nikkei an 1 Tag)', type: 'negative' },
+    { date: 'Januar 2025', title: 'KI-Integration im Mainstream', description: 'Grosse Unternehmen berichten ueber massive Produktivitaetssteigerungen durch KI-Tools.', impact: '+18% (NASDAQ in 3 Monaten)', type: 'positive' }
 ];
 
-// Top stocks for the dashboard table
+// ---- Top Stocks (overwritten by live data if available) ----
 const TopStocks = [
     { name: 'Apple', ticker: 'AAPL', price: '213,45', change: '+2,15%', changeType: 'positive', sentiment: 'positive', sentimentLabel: 'Bullish' },
     { name: 'Microsoft', ticker: 'MSFT', price: '425,80', change: '+1,43%', changeType: 'positive', sentiment: 'positive', sentimentLabel: 'Bullish' },
