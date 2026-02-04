@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         LiveDataLoader.applyToStockData();
         LiveDataLoader.applyToNewsData();
         LiveDataLoader.applyAIPredictions();
+        LiveDataLoader.applyCorrelations();
         LiveDataLoader.applyRecommendations();
         console.log('[StockPulse] Live crawler data applied successfully');
 
@@ -145,6 +146,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             renderNewsEvents(this.value);
             updateCorrelationStats(this.value);
         });
+
+        // Render reverse correlation findings
+        renderReverseCorrelations();
     }
 
     function renderNewsEvents(stockKey) {
@@ -435,6 +439,66 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         container.innerHTML = html;
+    }
+
+    // ---- Reverse Correlations ----
+    function renderReverseCorrelations() {
+        if (ReverseCorrelations.length === 0) return;
+
+        var container = document.getElementById('news-events-list');
+        if (!container) return;
+
+        // Sort by absolute change (strongest movements first)
+        var sorted = ReverseCorrelations.slice().sort(function(a, b) {
+            return Math.abs(b.change_pct) - Math.abs(a.change_pct);
+        }).slice(0, 20);
+
+        var html = '<div class="reverse-corr-header">' +
+            '<h4>KI-Reverse-Analyse: Signifikante Kursbewegungen</h4>' +
+            '<span class="ai-tag">KI</span>' +
+            '<span style="color:var(--text-muted);font-size:0.8rem;margin-left:8px;">' +
+            CorrelationStats.explained_count + ' von ' + CorrelationStats.total_movements +
+            ' Bewegungen erklaert (' + Math.round(CorrelationStats.overall_strength * 100) + '% Korrelation)</span>' +
+        '</div>';
+
+        sorted.forEach(function(corr) {
+            var isNeg = corr.change_pct < 0;
+            var changeClass = isNeg ? 'negative' : 'positive';
+            var arrow = isNeg ? '&#9660;' : '&#9650;';
+            var dateFormatted = corr.movement_date || '';
+
+            html += '<div class="news-event-item reverse-corr-item">' +
+                '<div class="news-event-date">' + dateFormatted + '</div>' +
+                '<div class="news-event-content">' +
+                    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">' +
+                        '<strong>' + (corr.stock_key || '').toUpperCase() + '</strong>' +
+                        '<span class="' + changeClass + '" style="font-weight:700;">' +
+                        arrow + ' ' + (corr.change_pct > 0 ? '+' : '') + corr.change_pct.toFixed(2) + '%</span>' +
+                        '<span class="badge-' + (corr.explained ? 'success' : 'danger') + '" style="font-size:0.7rem;padding:1px 6px;border-radius:4px;">' +
+                        (corr.explained ? 'Erklaert' : 'Unerklaert') + '</span>' +
+                    '</div>';
+
+            if (corr.matched_news && corr.matched_news.length > 0) {
+                html += '<ul style="list-style:none;padding:0;margin:4px 0 0 0;">';
+                corr.matched_news.slice(0, 3).forEach(function(news) {
+                    var sentClass = news.sentiment === 'positive' ? 'positive' :
+                                   news.sentiment === 'negative' ? 'negative' : 'neutral';
+                    var titleHTML = news.url
+                        ? '<a href="' + news.url + '" target="_blank" rel="noopener">' + (news.title || 'Quelle') + '</a>'
+                        : (news.title || 'Quelle');
+                    html += '<li style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:3px;">' +
+                        '<span class="rec-source-sentiment ' + sentClass + '"></span> ' +
+                        titleHTML +
+                        ' <span style="color:var(--text-muted);">(' + (news.source || '') + ')</span>' +
+                    '</li>';
+                });
+                html += '</ul>';
+            }
+
+            html += '</div></div>';
+        });
+
+        container.insertAdjacentHTML('beforeend', html);
     }
 
     // ---- Utility Functions ----

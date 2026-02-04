@@ -30,6 +30,7 @@ from crawler.stock_crawler import run_stock_crawler, save_stock_json
 from crawler.news_crawler import run_news_crawler
 from crawler.database import db
 from crawler.ai_model import predictor, RecommendationEngine
+from crawler.correlation import correlation_engine
 from crawler.config import CRAWL_INTERVAL, DATA_DIR, STOCKS
 
 # --- Logging Setup ---
@@ -133,6 +134,16 @@ def generate_frontend_data(predictions=None):
         except (json.JSONDecodeError, IOError) as e:
             logger.warning("Could not load model_performance.json: %s", e)
 
+    # Load correlation data if available
+    corr_path = os.path.join(DATA_DIR, "correlations.json")
+    correlations_data = {}
+    if os.path.isfile(corr_path):
+        try:
+            with open(corr_path, "r", encoding="utf-8") as f:
+                correlations_data = json.load(f)
+        except (json.JSONDecodeError, IOError) as e:
+            logger.warning("Could not load correlations.json: %s", e)
+
     # Get DB stats
     session = db.get_session()
     stats = db.get_db_stats(session)
@@ -157,6 +168,7 @@ def generate_frontend_data(predictions=None):
             "topFeatures": predictor.training_stats.get("top_features", [])
         },
         "modelPerformanceHistory": model_performance_data,
+        "correlations": correlations_data,
         "dbStats": stats,
         "predictionAccuracy": accuracy
     }
@@ -287,7 +299,17 @@ def run_full_crawl(initial=False):
         logger.error("News crawler failed: %s", str(e))
         errors.append(f"News crawler: {e}")
 
-    # 3. Run AI pipeline
+    # 3. Reverse Correlation Analysis
+    logger.info("Running reverse correlation analysis...")
+    try:
+        session = db.get_session()
+        correlations = correlation_engine.save_correlations_json(session)
+        logger.info("Correlation analysis complete, saved to %s", correlations)
+        session.close()
+    except Exception as e:
+        logger.error("Correlation analysis failed: %s", e)
+
+    # 4. Run AI pipeline
     try:
         predictions = run_ai_pipeline()
         logger.info("Predictions: %d generated", len(predictions) if predictions else 0)
@@ -295,7 +317,7 @@ def run_full_crawl(initial=False):
         logger.error("AI pipeline failed: %s", str(e))
         errors.append(f"AI pipeline: {e}")
 
-    # 4. Generate frontend data
+    # 5. Generate frontend data
     try:
         generate_frontend_data(predictions)
     except Exception as e:
@@ -430,6 +452,7 @@ def main():
     parser.add_argument("--stats", action="store_true", help="Show database statistics")
     parser.add_argument("--initial", action="store_true", help="First run: fetch max history")
     parser.add_argument("--recommend", action="store_true", help="Only generate recommendations (no crawl)")
+    parser.add_argument("--correlations", action="store_true", help="Run reverse correlation analysis only")
     parser.add_argument("--interval", type=int, default=None, help="Custom interval in seconds")
 
     args = parser.parse_args()
@@ -441,6 +464,12 @@ def main():
     if args.interval:
         global CRAWL_INTERVAL
         CRAWL_INTERVAL = args.interval
+
+    if args.correlations:
+        session = db.get_session()
+        correlation_engine.save_correlations_json(session)
+        session.close()
+        sys.exit(0)
 
     if args.stats:
         show_stats()

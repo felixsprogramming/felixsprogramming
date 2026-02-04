@@ -174,6 +174,19 @@ const LiveDataLoader = {
         }
     },
 
+    // Apply reverse correlation data from crawler
+    applyCorrelations() {
+        if (!this.liveData || !this.liveData.correlations) return;
+        var corrData = this.liveData.correlations;
+        ReverseCorrelations.length = 0;
+        if (corrData.correlations) {
+            corrData.correlations.forEach(function(c) { ReverseCorrelations.push(c); });
+        }
+        CorrelationStats.total_movements = corrData.total_movements || 0;
+        CorrelationStats.explained_count = corrData.explained_count || 0;
+        CorrelationStats.overall_strength = corrData.overall_correlation_strength || 0;
+    },
+
     // Apply AI recommendations from crawler
     applyRecommendations() {
         if (!this.liveData || !this.liveData.recommendations) return;
@@ -204,6 +217,10 @@ const AIModelInfo = {
 
 // ---- AI Recommendations (filled by live data or empty) ----
 const Recommendations = [];
+
+// ---- Reverse Correlations (filled by live data or empty) ----
+var ReverseCorrelations = [];
+var CorrelationStats = { total_movements: 0, explained_count: 0, overall_strength: 0 };
 
 // ---- Demo Data Generation (Fallback) ----
 

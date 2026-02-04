@@ -29,6 +29,11 @@ from .config import (
     USE_TRANSFORMER_SENTIMENT, STOCKS
 )
 
+try:
+    from .correlation import correlation_engine
+except ImportError:
+    correlation_engine = None
+
 logger = logging.getLogger(__name__)
 
 # Optional transformer import
@@ -224,7 +229,33 @@ class FeatureExtractor:
         }
 
     @staticmethod
-    def build_feature_vector(technical, news):
+    def compute_correlation_features(session, stock_key, days=30):
+        """Compute features from reverse correlation analysis."""
+        defaults = {
+            "explained_ratio": 0.5,
+            "sentiment_accuracy": 0.5,
+            "news_lead_time": 24.0,
+            "strong_correlations": 0,
+            "unexplained_movements": 0,
+            "news_predictive_ratio": 0.5,
+        }
+        if correlation_engine is None:
+            return defaults
+        try:
+            features = correlation_engine.compute_correlation_features(session, stock_key, days)
+            return {
+                "explained_ratio": features.get("explained_movement_ratio", 0.5),
+                "sentiment_accuracy": features.get("sentiment_accuracy", 0.5),
+                "news_lead_time": features.get("avg_news_lead_time_hours", 24.0),
+                "strong_correlations": features.get("strong_correlation_count", 0),
+                "unexplained_movements": features.get("unexplained_movement_count", 0),
+                "news_predictive_ratio": features.get("news_predictive_ratio", 0.5),
+            }
+        except Exception:
+            return defaults
+
+    @staticmethod
+    def build_feature_vector(technical, news, session=None, stock_key=None):
         """Combine technical and news features into a single feature vector."""
         if technical is None:
             return None
@@ -255,6 +286,20 @@ class FeatureExtractor:
             news.get("sentiment_momentum", 0),
             news.get("news_volume_signal", 0),
         ]
+
+        # Correlation features (reverse search)
+        corr = FeatureExtractor.compute_correlation_features(session, stock_key) if session else {
+            "explained_ratio": 0.5, "sentiment_accuracy": 0.5, "news_lead_time": 24.0,
+            "strong_correlations": 0, "unexplained_movements": 0, "news_predictive_ratio": 0.5,
+        }
+        features.extend([
+            corr["explained_ratio"],
+            corr["sentiment_accuracy"],
+            min(corr["news_lead_time"] / 72.0, 1.0),  # normalize to 0-1
+            min(corr["strong_correlations"] / 10.0, 1.0),  # normalize
+            min(corr["unexplained_movements"] / 10.0, 1.0),  # normalize
+            corr["news_predictive_ratio"],
+        ])
 
         return np.array(features, dtype=float)
 
