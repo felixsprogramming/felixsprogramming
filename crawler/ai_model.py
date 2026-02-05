@@ -538,6 +538,11 @@ class StockPredictor:
         # Build reasoning from top contributing news
         top_news = sorted(recent_news, key=lambda n: abs(n.sentiment_score), reverse=True)[:3]
         top_titles = [n.title for n in top_news]
+        # Include both title and URL for clickable links in frontend
+        top_news_with_urls = [
+            {"title": n.title, "url": n.url or "", "sentiment": n.sentiment}
+            for n in top_news
+        ]
 
         reason = self._generate_reason(
             direction, predicted_change, news_features, technical, top_titles
@@ -557,6 +562,7 @@ class StockPredictor:
             "volatility_30d": round(technical.get("volatility_20d", 0), 3),
             "reason": reason,
             "top_news_titles": top_titles,
+            "top_news": top_news_with_urls,
             "timeframe_days": PREDICTION_TIMEFRAME_DAYS,
             "direction_probabilities": {
                 "down": round(float(direction_proba[0]) * 100, 1),
@@ -595,6 +601,11 @@ class StockPredictor:
 
         top_news = sorted(recent_news, key=lambda n: abs(n.sentiment_score), reverse=True)[:3]
         top_titles = [n.title for n in top_news]
+        # Include both title and URL for clickable links in frontend
+        top_news_with_urls = [
+            {"title": n.title, "url": n.url or "", "sentiment": n.sentiment}
+            for n in top_news
+        ]
 
         stock_cfg = STOCKS.get(stock_key, {})
         return {
@@ -610,6 +621,7 @@ class StockPredictor:
             "volatility_30d": 0,
             "reason": self._generate_reason(direction, change, news_features, {}, top_titles),
             "top_news_titles": top_titles,
+            "top_news": top_news_with_urls,
             "timeframe_days": PREDICTION_TIMEFRAME_DAYS,
             "direction_probabilities": {}
         }

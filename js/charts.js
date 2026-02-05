@@ -65,7 +65,7 @@ const ChartModule = {
     },
 
     // Create main stock chart
-    createMainChart(canvasId, stockKey, range) {
+    createMainChart(canvasId, stockKey, range, dateFrom, dateTo) {
         this.destroyChart(canvasId);
         const ctx = document.getElementById(canvasId);
         if (!ctx) return;
@@ -73,7 +73,13 @@ const ChartModule = {
         const stock = StockData[stockKey];
         if (!stock) return;
 
-        const data = this.filterDataByRange(stock.data, range);
+        let data;
+        // If custom date range is provided, use that instead of preset range
+        if (dateFrom || dateTo) {
+            data = this.filterDataByDateRange(stock.data, dateFrom, dateTo);
+        } else {
+            data = this.filterDataByRange(stock.data, range);
+        }
         const isPositive = data.length >= 2 && data[data.length - 1].value >= data[0].value;
         const color = isPositive ? this.defaultColors.success : this.defaultColors.danger;
         const colorLight = isPositive ? this.defaultColors.successLight : this.defaultColors.dangerLight;
@@ -158,8 +164,47 @@ const ChartModule = {
         });
     },
 
+    // Create or get the news tooltip element
+    getNewsTooltip() {
+        let tooltip = document.getElementById('news-annotation-tooltip');
+        if (!tooltip) {
+            tooltip = document.createElement('div');
+            tooltip.id = 'news-annotation-tooltip';
+            tooltip.style.cssText = 'position:fixed;z-index:9999;background:rgba(15,23,42,0.98);border:1px solid #334155;border-radius:8px;padding:12px 16px;pointer-events:none;display:none;max-width:320px;box-shadow:0 10px 25px rgba(0,0,0,0.4);';
+            document.body.appendChild(tooltip);
+        }
+        return tooltip;
+    },
+
+    // Show news tooltip at position
+    showNewsTooltip(event, x, y) {
+        const tooltip = this.getNewsTooltip();
+        const sentimentLabel = event.sentiment === 'positive' ? 'Positiv' : event.sentiment === 'negative' ? 'Negativ' : 'Neutral';
+        const sentimentColor = event.sentiment === 'positive' ? '#10b981' : event.sentiment === 'negative' ? '#ef4444' : '#6b7280';
+        const impactStr = event.impact > 0 ? '+' + event.impact + '%' : event.impact + '%';
+        const impactColor = event.impact > 0 ? '#10b981' : '#ef4444';
+        const dateStr = new Date(event.date).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+
+        tooltip.innerHTML = '<div style="margin-bottom:8px;font-weight:700;color:#f1f5f9;font-size:0.95rem;line-height:1.4;">' + event.title + '</div>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:12px;font-size:0.8rem;">' +
+                '<div><span style="color:#64748b;">Datum:</span> <span style="color:#94a3b8;">' + dateStr + '</span></div>' +
+                '<div><span style="color:#64748b;">Sentiment:</span> <span style="color:' + sentimentColor + ';font-weight:600;">' + sentimentLabel + '</span></div>' +
+                '<div><span style="color:#64748b;">Kurseffekt:</span> <span style="color:' + impactColor + ';font-weight:600;">' + impactStr + '</span></div>' +
+            '</div>';
+
+        tooltip.style.display = 'block';
+        tooltip.style.left = Math.min(x + 15, window.innerWidth - tooltip.offsetWidth - 20) + 'px';
+        tooltip.style.top = Math.min(y + 15, window.innerHeight - tooltip.offsetHeight - 20) + 'px';
+    },
+
+    // Hide news tooltip
+    hideNewsTooltip() {
+        const tooltip = this.getNewsTooltip();
+        tooltip.style.display = 'none';
+    },
+
     // Create correlation chart with news annotations
-    createCorrelationChart(canvasId, stockKey) {
+    createCorrelationChart(canvasId, stockKey, dateFrom, dateTo) {
         this.destroyChart(canvasId);
         const ctx = document.getElementById(canvasId);
         if (!ctx) return;
@@ -168,8 +213,20 @@ const ChartModule = {
         const events = NewsEvents[stockKey] || [];
         if (!stock) return;
 
-        const data = stock.data.slice(-365); // Last year of data
+        let data = stock.data.slice(-365); // Last year of data
+
+        // Apply date range filter if provided
+        if (dateFrom || dateTo) {
+            data = data.filter(d => {
+                const date = new Date(d.date);
+                if (dateFrom && date < new Date(dateFrom)) return false;
+                if (dateTo && date > new Date(dateTo)) return false;
+                return true;
+            });
+        }
+
         const color = this.defaultColors.primary;
+        const self = this;
 
         // Build annotations from news events
         const annotations = {};
@@ -196,6 +253,12 @@ const ChartModule = {
                     font: { size: 10, weight: 'bold' },
                     padding: 4,
                     borderRadius: 10
+                },
+                enter: function(context, e) {
+                    self.showNewsTooltip(event, e.native.clientX, e.native.clientY);
+                },
+                leave: function() {
+                    self.hideNewsTooltip();
                 }
             };
         });
@@ -431,6 +494,16 @@ const ChartModule = {
         }
 
         return data.filter(d => new Date(d.date) >= cutoff);
+    },
+
+    // Filter data by custom date range
+    filterDataByDateRange(data, dateFrom, dateTo) {
+        return data.filter(d => {
+            const date = new Date(d.date);
+            if (dateFrom && date < new Date(dateFrom)) return false;
+            if (dateTo && date > new Date(dateTo)) return false;
+            return true;
+        });
     },
 
     // Get appropriate time unit for range

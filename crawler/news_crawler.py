@@ -304,3 +304,98 @@ def save_news_json(session):
 
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
+
+
+def search_news_for_stock(stock_key, keywords, session):
+    """
+    Search for news articles related to a specific stock using Google News RSS.
+    This function is used for custom crawling of user-specified stocks.
+
+    Parameters:
+        stock_key: Unique key for the stock (e.g., "aapl", "bmw_de")
+        keywords: List of keywords to search for
+        session: SQLAlchemy database session
+
+    Returns:
+        int: Number of new articles found and stored
+    """
+    logger.info("Searching news for %s with keywords: %s", stock_key, keywords)
+
+    all_articles = []
+
+    # Build search queries from keywords
+    for keyword in keywords[:3]:  # Limit to first 3 keywords to avoid too many requests
+        # German Google News search
+        de_url = f"https://news.google.com/rss/search?q={requests.utils.quote(keyword)}&hl=de&gl=DE&ceid=DE:de"
+        # English Google News search
+        en_url = f"https://news.google.com/rss/search?q={requests.utils.quote(keyword)}&hl=en&gl=US&ceid=US:en"
+
+        for url, lang in [(de_url, "de"), (en_url, "en")]:
+            try:
+                headers = {"User-Agent": USER_AGENT}
+                response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+                response.raise_for_status()
+                feed = feedparser.parse(response.content)
+
+                for entry in feed.entries[:20]:  # Limit per feed
+                    title = entry.get("title", "").strip()
+                    if not title:
+                        continue
+
+                    source_name = "Google News"
+                    if " - " in title:
+                        parts = title.rsplit(" - ", 1)
+                        title = parts[0].strip()
+                        source_name = parts[1].strip()
+
+                    published = None
+                    if hasattr(entry, "published_parsed") and entry.published_parsed:
+                        try:
+                            published = datetime(*entry.published_parsed[:6])
+                        except (TypeError, ValueError):
+                            published = datetime.now()
+                    else:
+                        published = datetime.now()
+
+                    article = {
+                        "article_hash": generate_news_id(title, source_name),
+                        "title": title,
+                        "summary": "",
+                        "source": source_name,
+                        "url": entry.get("link", ""),
+                        "published": published,
+                        "language": lang,
+                        "category": "finance"
+                    }
+                    all_articles.append(article)
+
+            except Exception as e:
+                logger.warning("Failed to fetch news for keyword '%s': %s", keyword, str(e))
+
+    # Deduplicate
+    seen = set()
+    unique_articles = []
+    for article in all_articles:
+        if article["article_hash"] not in seen:
+            seen.add(article["article_hash"])
+            unique_articles.append(article)
+
+    logger.info("Found %d unique articles for %s", len(unique_articles), stock_key)
+
+    # Enrich with sentiment and stock matching
+    for article in unique_articles:
+        enrich_article(article)
+        # Ensure this stock is marked as affected
+        affected = article.get("affected_stocks", "")
+        if stock_key not in affected:
+            if affected:
+                article["affected_stocks"] = affected + "," + stock_key
+            else:
+                article["affected_stocks"] = stock_key
+
+    # Store in database
+    inserted = db.bulk_insert_articles(session, unique_articles)
+    session.commit()
+
+    logger.info("Stored %d new articles for %s", inserted, stock_key)
+    return inserted

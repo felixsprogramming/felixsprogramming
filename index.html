@@ -24,6 +24,8 @@
             <li><a href="#predictions" class="nav-link" data-section="predictions">Vorhersagen</a></li>
             <li><a href="#history" class="nav-link" data-section="history">Historische Analyse</a></li>
             <li><a href="#recommendations" class="nav-link" data-section="recommendations">Empfehlungen</a></li>
+            <li><a href="#crawler" class="nav-link" data-section="crawler">Aktien-Crawler</a></li>
+            <li><a href="#etf" class="nav-link" data-section="etf">ETF & Fonds</a></li>
         </ul>
         <div class="nav-hamburger" id="hamburger">
             <span></span><span></span><span></span>
@@ -94,6 +96,8 @@
                             <option value="siemens">Siemens (SIE)</option>
                             <option value="sap">SAP (SAP)</option>
                         </select>
+                        <input type="date" id="main-date-from" class="date-input" title="Von Datum">
+                        <input type="date" id="main-date-to" class="date-input" title="Bis Datum">
                         <div class="time-range-buttons">
                             <button class="time-btn active" data-range="1M">1M</button>
                             <button class="time-btn" data-range="3M">3M</button>
@@ -147,6 +151,8 @@
                                 <option value="tesla">Tesla (TSLA)</option>
                                 <option value="microsoft">Microsoft (MSFT)</option>
                             </select>
+                            <input type="date" id="correlation-date-from" class="date-input" title="Von Datum">
+                            <input type="date" id="correlation-date-to" class="date-input" title="Bis Datum">
                         </div>
                     </div>
                     <div class="chart-wrapper">
@@ -264,6 +270,19 @@
                 <p class="subtitle">Detaillierte Analyse vergangener Kursentwicklungen und deren Zusammenhang mit Nachrichtenereignissen</p>
             </div>
 
+            <!-- History Filters -->
+            <div class="history-filters">
+                <select id="history-filter" class="select-input">
+                    <option value="all">Alle Indizes & Aktien</option>
+                    <option value="dax">DAX</option>
+                    <option value="dowjones">Dow Jones</option>
+                    <option value="sp500">S&P 500</option>
+                    <option value="nasdaq">NASDAQ</option>
+                    <option value="tech">Tech-Sektor</option>
+                    <option value="finance">Finanzsektor</option>
+                </select>
+            </div>
+
             <!-- Historical Events Timeline -->
             <div class="timeline-section">
                 <h3>Bedeutende Marktereignisse</h3>
@@ -367,6 +386,101 @@
                 -->
                 <div class="rec-empty">
                     <p>Keine Empfehlungen verfuegbar. Die KI-Analyse wird regelmaessig aktualisiert.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Custom Crawler Section -->
+    <section id="crawler" class="section">
+        <div class="container">
+            <div class="section-header">
+                <h1>Aktien-Crawler</h1>
+                <p class="subtitle">Einzelne Aktien crawlen und News-Korrelationen analysieren</p>
+            </div>
+
+            <div class="crawler-controls">
+                <div class="crawler-input-group">
+                    <label for="crawler-ticker">Ticker-Symbol (z.B. AAPL, MSFT, BMW.DE):</label>
+                    <input type="text" id="crawler-ticker" class="text-input" placeholder="AAPL">
+                </div>
+                <div class="crawler-input-group">
+                    <label for="crawler-name">Aktienname:</label>
+                    <input type="text" id="crawler-name" class="text-input" placeholder="Apple Inc.">
+                </div>
+                <div class="crawler-input-group">
+                    <label for="crawler-keywords">Keywords (kommagetrennt):</label>
+                    <input type="text" id="crawler-keywords" class="text-input" placeholder="Apple, iPhone, Tim Cook, iOS">
+                </div>
+                <button id="crawler-start" class="btn-primary">Crawl starten</button>
+            </div>
+
+            <div id="crawler-status" class="crawler-status" style="display:none;">
+                <div class="status-spinner"></div>
+                <span id="crawler-status-text">Crawle Daten...</span>
+            </div>
+
+            <div id="crawler-results" class="crawler-results" style="display:none;">
+                <h3>Ergebnisse</h3>
+                <div id="crawler-result-content"></div>
+            </div>
+
+            <div class="crawler-history">
+                <h3>Gespeicherte Aktien</h3>
+                <div id="crawler-saved-stocks" class="saved-stocks-grid">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ETF & Fonds Section -->
+    <section id="etf" class="section">
+        <div class="container">
+            <div class="section-header">
+                <h1>ETF & Fonds Analyse</h1>
+                <p class="subtitle">Korrelation zwischen News und ETFs/Fonds basierend auf deren Aktien-Gewichtung</p>
+            </div>
+
+            <div class="etf-selector">
+                <select id="etf-select" class="select-input">
+                    <option value="">ETF/Fonds waehlen...</option>
+                    <option value="spy">SPDR S&P 500 ETF (SPY)</option>
+                    <option value="qqq">Invesco QQQ Trust (QQQ)</option>
+                    <option value="vti">Vanguard Total Stock (VTI)</option>
+                    <option value="iwm">iShares Russell 2000 (IWM)</option>
+                    <option value="dax-etf">iShares Core DAX (EXS1)</option>
+                    <option value="msci-world">iShares MSCI World (URTH)</option>
+                </select>
+            </div>
+
+            <div id="etf-details" class="etf-details" style="display:none;">
+                <div class="etf-info-card">
+                    <h3 id="etf-name">ETF Name</h3>
+                    <div class="etf-stats">
+                        <div class="etf-stat">
+                            <span class="etf-stat-value" id="etf-sentiment">--</span>
+                            <span class="etf-stat-label">Gewichtetes Sentiment</span>
+                        </div>
+                        <div class="etf-stat">
+                            <span class="etf-stat-value" id="etf-holdings">--</span>
+                            <span class="etf-stat-label">Top Holdings</span>
+                        </div>
+                        <div class="etf-stat">
+                            <span class="etf-stat-value" id="etf-news-count">--</span>
+                            <span class="etf-stat-label">Relevante News</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="etf-holdings-section">
+                    <h3>Top Holdings & News-Sentiment</h3>
+                    <div id="etf-holdings-list" class="holdings-list"></div>
+                </div>
+
+                <div class="etf-news-section">
+                    <h3>Aggregierte News-Auswirkung</h3>
+                    <div id="etf-news-impact" class="news-impact-grid"></div>
                 </div>
             </div>
         </div>

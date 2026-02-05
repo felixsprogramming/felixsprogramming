@@ -148,3 +148,70 @@ def save_stock_json(stock_data):
 
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
+
+
+def fetch_single_stock(ticker, session, period="1y"):
+    """
+    Fetch historical and current price data for a single stock by ticker symbol.
+    This function is used for custom crawling of user-specified stocks.
+
+    Parameters:
+        ticker: Stock ticker symbol (e.g., "AAPL", "BMW.DE")
+        session: SQLAlchemy database session
+        period: Time period for historical data (default: 1y)
+
+    Returns:
+        dict with stock data including history, or None on failure
+    """
+    logger.info("Fetching single stock: %s (period=%s)...", ticker, period)
+
+    try:
+        yf_ticker = yf.Ticker(ticker)
+        hist = yf_ticker.history(period=period)
+
+        if hist.empty:
+            logger.warning("No data returned for %s", ticker)
+            return None
+
+        price_data = []
+        for date, row in hist.iterrows():
+            price_data.append({
+                "date": date.strftime("%Y-%m-%d"),
+                "open": round(float(row["Open"]), 2),
+                "high": round(float(row["High"]), 2),
+                "low": round(float(row["Low"]), 2),
+                "close": round(float(row["Close"]), 2),
+                "volume": int(row["Volume"])
+            })
+
+        if len(price_data) < 2:
+            return None
+
+        current_price = price_data[-1]["close"]
+        prev_price = price_data[-2]["close"]
+        change_pct = round((current_price - prev_price) / prev_price * 100, 2)
+
+        # Generate stock key from ticker
+        stock_key = ticker.lower().replace(".", "_")
+
+        # Store prices in database
+        inserted = db.bulk_insert_prices(session, stock_key, price_data)
+        session.commit()
+        logger.info("  %s: %d new price records stored", ticker, inserted)
+
+        return {
+            "key": stock_key,
+            "ticker": ticker,
+            "currentPrice": current_price,
+            "previousClose": prev_price,
+            "changePercent": change_pct,
+            "dayHigh": price_data[-1]["high"],
+            "dayLow": price_data[-1]["low"],
+            "volume": price_data[-1]["volume"],
+            "history": price_data,
+            "lastUpdated": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        logger.error("Error fetching %s: %s", ticker, str(e))
+        return None

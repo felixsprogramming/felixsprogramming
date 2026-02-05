@@ -110,7 +110,8 @@ def generate_frontend_data(predictions=None):
                 "sentimentAvg": pred["news_sentiment_avg"],
                 "timeframe": f"{pred['timeframe_days']} Tage",
                 "directionProbabilities": pred.get("direction_probabilities", {}),
-                "topNews": pred.get("top_news_titles", [])
+                "topNews": pred.get("top_news_titles", []),
+                "topNewsSources": pred.get("top_news", [])
             })
 
     # Load recommendations if available
@@ -260,9 +261,9 @@ def run_ai_pipeline():
 
     # 5. Generate recommendations from predictions
     try:
-        engine = RecommendationEngine(db, session, predictor)
-        recommendations = engine.generate_recommendations(max_count=20)
-        engine.save_recommendations_json()
+        engine = RecommendationEngine(predictor)
+        recommendations = engine.generate_recommendations(db, session, max_count=20)
+        engine.save_recommendations_json(db, session)
         logger.info("Generated %d recommendations", len(recommendations))
     except Exception as e:
         logger.warning("Recommendation generation failed (non-critical): %s", e)
@@ -478,9 +479,9 @@ def main():
         session = db.get_session()
         if not predictor.is_trained:
             predictor.load_model()
-        engine = RecommendationEngine(db, session, predictor)
-        recommendations = engine.generate_recommendations(max_count=20)
-        engine.save_recommendations_json()
+        engine = RecommendationEngine(predictor)
+        recommendations = engine.generate_recommendations(db, session, max_count=20)
+        engine.save_recommendations_json(db, session)
         session.close()
         logger.info("Generated %d recommendations", len(recommendations))
         generate_frontend_data()

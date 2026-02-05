@@ -179,6 +179,13 @@ const LiveDataLoader = {
 
         AIPredictions.length = 0;
         this.liveData.aiPredictions.forEach(pred => {
+            // Ensure topNewsSources is available for clickable links
+            if (!pred.topNewsSources && pred.topNews) {
+                // Fallback: convert simple title strings to objects without URLs
+                pred.topNewsSources = pred.topNews.map(function(title) {
+                    return typeof title === 'string' ? { title: title, url: '', sentiment: 'neutral' } : title;
+                });
+            }
             AIPredictions.push(pred);
         });
 
@@ -245,6 +252,106 @@ const Recommendations = [];
 // ---- Reverse Correlations (filled by live data or empty) ----
 var ReverseCorrelations = [];
 var CorrelationStats = { total_movements: 0, explained_count: 0, overall_strength: 0 };
+
+// ---- ETF Data with Holdings ----
+var ETFData = {
+    'spy': {
+        name: 'SPDR S&P 500 ETF',
+        ticker: 'SPY',
+        holdings: [
+            {stock: 'AAPL', weight: 7.2, name: 'Apple'},
+            {stock: 'MSFT', weight: 6.8, name: 'Microsoft'},
+            {stock: 'AMZN', weight: 3.4, name: 'Amazon'},
+            {stock: 'NVDA', weight: 3.2, name: 'NVIDIA'},
+            {stock: 'GOOGL', weight: 2.1, name: 'Alphabet'},
+            {stock: 'META', weight: 1.9, name: 'Meta'},
+            {stock: 'TSLA', weight: 1.8, name: 'Tesla'},
+            {stock: 'BRK.B', weight: 1.7, name: 'Berkshire'},
+            {stock: 'JPM', weight: 1.3, name: 'JPMorgan'},
+            {stock: 'V', weight: 1.2, name: 'Visa'}
+        ]
+    },
+    'qqq': {
+        name: 'Invesco QQQ Trust',
+        ticker: 'QQQ',
+        holdings: [
+            {stock: 'AAPL', weight: 11.2, name: 'Apple'},
+            {stock: 'MSFT', weight: 10.5, name: 'Microsoft'},
+            {stock: 'AMZN', weight: 5.8, name: 'Amazon'},
+            {stock: 'NVDA', weight: 5.2, name: 'NVIDIA'},
+            {stock: 'META', weight: 4.1, name: 'Meta'},
+            {stock: 'GOOGL', weight: 3.8, name: 'Alphabet'},
+            {stock: 'TSLA', weight: 3.2, name: 'Tesla'},
+            {stock: 'AVGO', weight: 2.8, name: 'Broadcom'},
+            {stock: 'COST', weight: 2.4, name: 'Costco'},
+            {stock: 'ADBE', weight: 2.1, name: 'Adobe'}
+        ]
+    },
+    'vti': {
+        name: 'Vanguard Total Stock Market',
+        ticker: 'VTI',
+        holdings: [
+            {stock: 'AAPL', weight: 6.5, name: 'Apple'},
+            {stock: 'MSFT', weight: 6.1, name: 'Microsoft'},
+            {stock: 'AMZN', weight: 3.0, name: 'Amazon'},
+            {stock: 'NVDA', weight: 2.8, name: 'NVIDIA'},
+            {stock: 'GOOGL', weight: 1.9, name: 'Alphabet'},
+            {stock: 'META', weight: 1.7, name: 'Meta'},
+            {stock: 'TSLA', weight: 1.5, name: 'Tesla'},
+            {stock: 'BRK.B', weight: 1.4, name: 'Berkshire'},
+            {stock: 'JPM', weight: 1.2, name: 'JPMorgan'},
+            {stock: 'JNJ', weight: 1.0, name: 'Johnson & Johnson'}
+        ]
+    },
+    'iwm': {
+        name: 'iShares Russell 2000',
+        ticker: 'IWM',
+        holdings: [
+            {stock: 'SMCI', weight: 0.8, name: 'Super Micro'},
+            {stock: 'CELH', weight: 0.6, name: 'Celsius'},
+            {stock: 'ONTO', weight: 0.5, name: 'Onto Innovation'},
+            {stock: 'EME', weight: 0.4, name: 'EMCOR Group'},
+            {stock: 'FN', weight: 0.4, name: 'Fabrinet'},
+            {stock: 'RCL', weight: 0.4, name: 'Royal Caribbean'},
+            {stock: 'COKE', weight: 0.3, name: 'Coca-Cola Consolidated'},
+            {stock: 'WFRD', weight: 0.3, name: 'Weatherford'},
+            {stock: 'MEDP', weight: 0.3, name: 'Medpace'},
+            {stock: 'KTOS', weight: 0.3, name: 'Kratos Defense'}
+        ]
+    },
+    'dax-etf': {
+        name: 'iShares Core DAX',
+        ticker: 'EXS1.DE',
+        holdings: [
+            {stock: 'SAP', weight: 10.5, name: 'SAP'},
+            {stock: 'SIE', weight: 9.2, name: 'Siemens'},
+            {stock: 'ALV', weight: 8.1, name: 'Allianz'},
+            {stock: 'DTE', weight: 6.5, name: 'Deutsche Telekom'},
+            {stock: 'MUV2', weight: 5.8, name: 'Munich Re'},
+            {stock: 'AIR', weight: 5.2, name: 'Airbus'},
+            {stock: 'MBG', weight: 4.8, name: 'Mercedes-Benz'},
+            {stock: 'BMW', weight: 4.1, name: 'BMW'},
+            {stock: 'BAS', weight: 3.9, name: 'BASF'},
+            {stock: 'BAYN', weight: 3.5, name: 'Bayer'}
+        ]
+    },
+    'msci-world': {
+        name: 'iShares MSCI World',
+        ticker: 'URTH',
+        holdings: [
+            {stock: 'AAPL', weight: 5.1, name: 'Apple'},
+            {stock: 'MSFT', weight: 4.8, name: 'Microsoft'},
+            {stock: 'AMZN', weight: 2.4, name: 'Amazon'},
+            {stock: 'NVDA', weight: 2.2, name: 'NVIDIA'},
+            {stock: 'GOOGL', weight: 1.5, name: 'Alphabet'},
+            {stock: 'META', weight: 1.3, name: 'Meta'},
+            {stock: 'TSLA', weight: 1.1, name: 'Tesla'},
+            {stock: 'JPM', weight: 0.9, name: 'JPMorgan'},
+            {stock: 'NESN', weight: 0.8, name: 'Nestle'},
+            {stock: 'ASML', weight: 0.7, name: 'ASML'}
+        ]
+    }
+};
 
 // ---- Demo Data Generation (Fallback) ----
 
@@ -425,10 +532,10 @@ const HistoricalEvents = [
     {
         date: 'Maerz 2020',
         title: 'COVID-19 Pandemie - Globaler Boersencrash',
-        description: 'Die WHO erklaert COVID-19 am 11. Maerz zur Pandemie. Lockdowns weltweit fuehren zu Panikverkaeufen. Der DAX verliert innerhalb von 30 Tagen fast 39%, der Dow Jones faellt um ueber 35%. Nachrichten ueber steigende Infektionszahlen und wirtschaftliche Stilllegungen treiben den Ausverkauf.',
+        description: 'Die WHO erklaert COVID-19 am 11. Maerz zur Pandemie. Lockdowns weltweit fuehren zu Panikverkaeufen. Der DAX verliert innerhalb von 30 Tagen fast 39%, der Dow Jones faellt um ueber 35%. Nachrichten ueber steigende Infektionszahlen und wirtschaftliche Stilllegungen treiben den Ausverkauf. Die Federal Reserve senkt die Zinsen auf nahe Null und startet massive Anleihekaeufe.',
         impact: -38.8,
         type: 'negative',
-        affected: ['DAX', 'Dow Jones', 'S&P 500', 'NASDAQ'],
+        affected: ['DAX', 'Dow Jones', 'S&P 500', 'NASDAQ', 'tech', 'finance'],
         sources: [
             { title: 'Reuters - Maerkte im freien Fall', url: 'https://www.reuters.com/markets/' },
             { title: 'Tagesschau - WHO erklaert Pandemie', url: 'https://www.tagesschau.de/wirtschaft/' },
@@ -436,12 +543,38 @@ const HistoricalEvents = [
         ]
     },
     {
+        date: 'April 2020',
+        title: 'Oelpreis-Kollaps - Negatives Futures',
+        description: 'Am 20. April 2020 fiel der WTI-Oelpreis erstmals in der Geschichte ins Negative (-$37,63 pro Barrel). Die globale Nachfrage brach durch Lockdowns ein, waehrend die Lagerkapazitaeten erschoepft waren. Energieaktien wie ExxonMobil und Chevron verloren massiv. Die OPEC+ vereinbarte daraufhin historische Produktionskuerzungen.',
+        impact: -105,
+        type: 'negative',
+        affected: ['Oelpreis', 'ExxonMobil', 'Chevron', 'S&P 500', 'finance'],
+        sources: [
+            { title: 'Bloomberg - Oil crashes below zero', url: 'https://www.bloomberg.com/energy/' },
+            { title: 'Reuters - Historic oil price collapse', url: 'https://www.reuters.com/business/energy/' },
+            { title: 'FAZ - Oelpreis negativ', url: 'https://www.faz.net/aktuell/finanzen/' }
+        ]
+    },
+    {
+        date: 'August 2020',
+        title: 'Apple und Tesla Aktiensplits',
+        description: 'Apple fuehrt einen 4:1-Aktiensplit durch, Tesla einen 5:1-Split. Beide Aktien steigen in den Wochen vor dem Split stark an, da Privatanleger auf guenstigere Einzelpreise spekulieren. Apple erreicht als erstes US-Unternehmen eine Marktkapitalisierung von $2 Billionen. Der Tech-Boom der Pandemie-Aera erreicht seinen Hoehepunkt.',
+        impact: 34.5,
+        type: 'positive',
+        affected: ['Apple', 'Tesla', 'NASDAQ', 'S&P 500', 'tech', 'AAPL'],
+        sources: [
+            { title: 'CNBC - Apple reaches $2 trillion', url: 'https://www.cnbc.com/technology/' },
+            { title: 'Bloomberg - Tesla stock split rally', url: 'https://www.bloomberg.com/markets/' },
+            { title: 'Handelsblatt - Tech-Rallye 2020', url: 'https://www.handelsblatt.com/technik/' }
+        ]
+    },
+    {
         date: 'November 2020',
         title: 'COVID-Erholung / Impfstoff-Rally',
-        description: 'BioNTech und Pfizer melden am 9. November eine Impfstoff-Wirksamkeit von 95%. Die Nachricht loest eine der staerksten Rallys der Boersengeschichte aus. Reise-, Freizeit- und Bankaktien springen zweistellig nach oben, da Anleger auf ein Ende der Pandemie setzen.',
+        description: 'BioNTech und Pfizer melden am 9. November eine Impfstoff-Wirksamkeit von 95%. Die Nachricht loest eine der staerksten Rallys der Boersengeschichte aus. Reise-, Freizeit- und Bankaktien springen zweistellig nach oben, da Anleger auf ein Ende der Pandemie setzen. Der Dow Jones steigt erstmals ueber 30.000 Punkte.',
         impact: 15.4,
         type: 'positive',
-        affected: ['DAX', 'Dow Jones', 'BioNTech', 'Lufthansa'],
+        affected: ['DAX', 'Dow Jones', 'BioNTech', 'Lufthansa', 'finance'],
         sources: [
             { title: 'Bloomberg - Vaccine Rally', url: 'https://www.bloomberg.com/markets/' },
             { title: 'FAZ - BioNTech Impfstoff-Durchbruch', url: 'https://www.faz.net/aktuell/finanzen/' },
@@ -451,10 +584,10 @@ const HistoricalEvents = [
     {
         date: 'Januar 2021',
         title: 'GameStop Short Squeeze',
-        description: 'Kleinanleger auf Reddit (r/WallStreetBets) koordinieren massive Kaeufe von GameStop-Aktien und treiben den Kurs um ueber 1.600% nach oben. Hedgefonds wie Melvin Capital erleiden Milliardenverluste. Die Ereignisse fuehren zu einer Debatte ueber Marktmanipulation und Trading-Apps wie Robinhood.',
+        description: 'Kleinanleger auf Reddit (r/WallStreetBets) koordinieren massive Kaeufe von GameStop-Aktien und treiben den Kurs um ueber 1.600% nach oben. Hedgefonds wie Melvin Capital erleiden Milliardenverluste. Robinhood stoppt voruebergehend den Handel, was zu Kongressanhoerungen fuehrt. Das Ereignis markiert den Aufstieg der Retail-Investoren.',
         impact: 1600,
         type: 'positive',
-        affected: ['GameStop', 'AMC', 'NASDAQ', 'Dow Jones'],
+        affected: ['GameStop', 'AMC', 'NASDAQ', 'Dow Jones', 'finance'],
         sources: [
             { title: 'Wall Street Journal - GameStop Frenzy', url: 'https://www.wsj.com/finance/stocks/' },
             { title: 'Handelsblatt - Reddit vs. Wall Street', url: 'https://www.handelsblatt.com/finanzen/' },
@@ -462,12 +595,25 @@ const HistoricalEvents = [
         ]
     },
     {
+        date: 'April 2021',
+        title: 'Coinbase Boersengang',
+        description: 'Die Kryptoboerse Coinbase geht per Direct Listing an die NASDAQ und erreicht zeitweise eine Bewertung von $100 Milliarden. Bitcoin notiert nahe seines damaligen Allzeithochs von $64.000. Der Boersengang gilt als Meilenstein fuer die Akzeptanz von Kryptowaehrungen im Mainstream-Finanzmarkt.',
+        impact: 8.5,
+        type: 'positive',
+        affected: ['Coinbase', 'NASDAQ', 'Bitcoin', 'tech', 'finance'],
+        sources: [
+            { title: 'Bloomberg - Coinbase IPO', url: 'https://www.bloomberg.com/crypto/' },
+            { title: 'Reuters - Coinbase valued at $100B', url: 'https://www.reuters.com/technology/' },
+            { title: 'Handelsblatt - Krypto-Boersengang', url: 'https://www.handelsblatt.com/finanzen/' }
+        ]
+    },
+    {
         date: 'November 2021',
         title: 'Fed Zinswende Ankuendigung',
-        description: 'Fed-Chef Jerome Powell signalisiert das Ende der ultralockeren Geldpolitik und kuendigt ein beschleunigtes Tapering der Anleihenkaeufe an. Die Maerkte reagieren nervoes, insbesondere hoch bewertete Wachstumsaktien geraten unter Druck. Der Beginn des Zinsanhebungszyklus zeichnet sich ab.',
+        description: 'Fed-Chef Jerome Powell signalisiert das Ende der ultralockeren Geldpolitik und kuendigt ein beschleunigtes Tapering der Anleihenkaeufe an. Die Maerkte reagieren nervoes, insbesondere hoch bewertete Wachstumsaktien geraten unter Druck. Der Beginn des Zinsanhebungszyklus zeichnet sich ab. Die Inflation erreicht mit 6,8% den hoechsten Stand seit 1982.',
         impact: -5.2,
         type: 'negative',
-        affected: ['NASDAQ', 'S&P 500', 'Tech-Aktien'],
+        affected: ['NASDAQ', 'S&P 500', 'tech', 'Tesla', 'Microsoft'],
         sources: [
             { title: 'Reuters - Fed signals faster taper', url: 'https://www.reuters.com/business/finance/' },
             { title: 'Bloomberg - Powell pivots on inflation', url: 'https://www.bloomberg.com/markets/' },
@@ -477,10 +623,10 @@ const HistoricalEvents = [
     {
         date: 'Februar 2022',
         title: 'Ukraine Krieg Beginn',
-        description: 'Am 24. Februar 2022 beginnt Russland die Invasion der Ukraine. Energiepreise explodieren, Gas- und Oelpreise erreichen Rekordstaende. Der DAX verliert ueber 8% in einer Woche, europaeische Maerkte sind besonders betroffen. Sanktionen gegen Russland verschaerfen die Energiekrise in Europa.',
+        description: 'Am 24. Februar 2022 beginnt Russland die Invasion der Ukraine. Energiepreise explodieren, Gas- und Oelpreise erreichen Rekordstaende. Der DAX verliert ueber 8% in einer Woche, europaeische Maerkte sind besonders betroffen. Sanktionen gegen Russland verschaerfen die Energiekrise in Europa. Der Rubel bricht ein, russische Aktien werden wertlos.',
         impact: -8.7,
         type: 'negative',
-        affected: ['DAX', 'Euro Stoxx 50', 'Oelpreis', 'Gaspreis'],
+        affected: ['DAX', 'Euro Stoxx 50', 'Oelpreis', 'Gaspreis', 'finance'],
         sources: [
             { title: 'Tagesschau - Russland greift Ukraine an', url: 'https://www.tagesschau.de/wirtschaft/' },
             { title: 'Handelsblatt - Energiekrise und Boersen', url: 'https://www.handelsblatt.com/finanzen/' },
@@ -488,12 +634,25 @@ const HistoricalEvents = [
         ]
     },
     {
+        date: 'Juni 2022',
+        title: 'US-Inflation erreicht 9,1% - 40-Jahres-Hoch',
+        description: 'Die US-Inflationsrate erreicht im Juni 2022 mit 9,1% den hoechsten Stand seit November 1981. Die Fed reagiert mit der aggressivsten Zinserhoehungspolitik seit den 1980er Jahren. Die Rezessionsaengste nehmen zu, der S&P 500 faellt in einen Baerenmarkt. Verbraucher- und Technologieaktien leiden besonders unter steigenden Kapitalkosten.',
+        impact: -5.8,
+        type: 'negative',
+        affected: ['S&P 500', 'NASDAQ', 'Dow Jones', 'tech', 'finance'],
+        sources: [
+            { title: 'Bloomberg - Inflation hits 40-year high', url: 'https://www.bloomberg.com/economy/' },
+            { title: 'Reuters - CPI shocks markets', url: 'https://www.reuters.com/markets/' },
+            { title: 'CNBC - Fed battles inflation', url: 'https://www.cnbc.com/economy/' }
+        ]
+    },
+    {
         date: '2022',
         title: 'Tech-Crash / NASDAQ Baerenmarkt',
-        description: 'Steigende Zinsen, hohe Inflation und das Ende des Pandemie-Booms fuehren zum schlimmsten Tech-Ausverkauf seit der Dotcom-Blase. Der NASDAQ verliert ueber 33% im Jahresverlauf. Meta faellt um 65%, Netflix um 51%. Die Aera des billigen Geldes ist vorbei, Wachstumsaktien werden massiv abgestraft.',
+        description: 'Steigende Zinsen, hohe Inflation und das Ende des Pandemie-Booms fuehren zum schlimmsten Tech-Ausverkauf seit der Dotcom-Blase. Der NASDAQ verliert ueber 33% im Jahresverlauf. Meta faellt um 65%, Netflix um 51%. Massenentlassungen bei Tech-Konzernen: Meta entlaesst 11.000, Amazon 18.000, Google 12.000 Mitarbeiter.',
         impact: -33.1,
         type: 'negative',
-        affected: ['NASDAQ', 'Meta', 'Netflix', 'Tesla', 'Amazon'],
+        affected: ['NASDAQ', 'Meta', 'Netflix', 'Tesla', 'Amazon', 'tech'],
         sources: [
             { title: 'Bloomberg - Tech bear market deepens', url: 'https://www.bloomberg.com/technology/' },
             { title: 'CNBC - Worst year for tech since 2008', url: 'https://www.cnbc.com/technology/' },
@@ -501,12 +660,25 @@ const HistoricalEvents = [
         ]
     },
     {
+        date: 'November 2022',
+        title: 'FTX Kollaps - Krypto-Krise',
+        description: 'Die Kryptoboerse FTX bricht innerhalb weniger Tage zusammen, nachdem Berichte ueber Bilanzmanipulationen bekannt werden. Gruender Sam Bankman-Fried wird spaeter wegen Betrugs verurteilt. Bitcoin faellt unter $16.000, der gesamte Kryptomarkt verliert $200 Milliarden. Das Vertrauen in zentrale Kryptoboersen ist erschuettert.',
+        impact: -22.5,
+        type: 'negative',
+        affected: ['Bitcoin', 'Coinbase', 'NASDAQ', 'tech', 'finance'],
+        sources: [
+            { title: 'Reuters - FTX files for bankruptcy', url: 'https://www.reuters.com/technology/' },
+            { title: 'Bloomberg - Crypto winter deepens', url: 'https://www.bloomberg.com/crypto/' },
+            { title: 'Handelsblatt - FTX-Skandal', url: 'https://www.handelsblatt.com/finanzen/' }
+        ]
+    },
+    {
         date: 'Maerz 2023',
-        title: 'Credit Suisse Kollaps / Bankenkrise',
-        description: 'Nach dem Zusammenbruch der Silicon Valley Bank (SVB) und der Signature Bank in den USA geraten auch europaeische Banken unter Druck. Die Credit Suisse, seit Jahren krisengeschuettelt, wird in einer Notfusion von der UBS uebernommen. Bankaktien weltweit stuerzen ab, Erinnerungen an 2008 werden wach.',
+        title: 'Silicon Valley Bank Kollaps / Bankenkrise',
+        description: 'Die Silicon Valley Bank (SVB), wichtigster Bankpartner der Tech-Startup-Szene, bricht nach einem Bank-Run zusammen. Es ist der groesste US-Bankenzusammenbruch seit 2008. Signature Bank und First Republic folgen. Die Credit Suisse wird von UBS in einer Notfusion uebernommen. Die Fed greift mit Notfallmassnahmen ein.',
         impact: -6.8,
         type: 'negative',
-        affected: ['Credit Suisse', 'UBS', 'DAX', 'Deutsche Bank', 'Dow Jones'],
+        affected: ['Credit Suisse', 'UBS', 'DAX', 'Deutsche Bank', 'Dow Jones', 'finance'],
         sources: [
             { title: 'Reuters - Credit Suisse rescued by UBS', url: 'https://www.reuters.com/business/finance/' },
             { title: 'FAZ - Bankenkrise 2023', url: 'https://www.faz.net/aktuell/finanzen/' },
@@ -514,12 +686,12 @@ const HistoricalEvents = [
         ]
     },
     {
-        date: '2023',
-        title: 'KI-Rally / ChatGPT Hype',
-        description: 'ChatGPT erreicht im Januar 100 Millionen Nutzer und loest einen beispiellosen KI-Investitionsboom aus. Microsoft investiert $10 Milliarden in OpenAI, Google stellt Bard vor. Tech-Aktien mit KI-Bezug steigen massiv. NVIDIA wird zum groessten Profiteur des KI-Booms.',
-        impact: 240,
+        date: 'Januar 2023',
+        title: 'KI-Rally / ChatGPT Hype beginnt',
+        description: 'ChatGPT erreicht im Januar 100 Millionen Nutzer und loest einen beispiellosen KI-Investitionsboom aus. Microsoft investiert $10 Milliarden in OpenAI, Google stellt Bard vor. Tech-Aktien mit KI-Bezug steigen massiv. NVIDIA wird zum groessten Profiteur des KI-Booms. Der Begriff "Generative KI" dominiert die Schlagzeilen.',
+        impact: 18.5,
         type: 'positive',
-        affected: ['NVIDIA', 'Microsoft', 'NASDAQ', 'Alphabet'],
+        affected: ['NVIDIA', 'Microsoft', 'NASDAQ', 'Alphabet', 'tech', 'MSFT'],
         sources: [
             { title: 'Bloomberg - AI boom drives tech rally', url: 'https://www.bloomberg.com/technology/' },
             { title: 'Handelsblatt - KI-Revolution an der Boerse', url: 'https://www.handelsblatt.com/technik/' },
@@ -529,10 +701,10 @@ const HistoricalEvents = [
     {
         date: 'Mai 2023',
         title: 'NVIDIA Rekord-Quartalszahlen',
-        description: 'NVIDIA meldet fuer Q1 2024 einen Umsatzausblick von $11 Milliarden - 50% ueber den Analystenerwartungen. Die Aktie springt nachboerslich um 25% nach oben und treibt den gesamten Chipsektor mit. NVIDIA wird zum Symbol des KI-Booms und ueberschreitet spaeter die $1-Billionen-Marktkapitalisierung.',
+        description: 'NVIDIA meldet fuer Q1 2024 einen Umsatzausblick von $11 Milliarden - 50% ueber den Analystenerwartungen. Die Aktie springt nachboerslich um 25% nach oben und treibt den gesamten Chipsektor mit. NVIDIA wird zum Symbol des KI-Booms und ueberschreitet spaeter die $1-Billionen-Marktkapitalisierung. CEO Jensen Huang wird zur Ikone der KI-Aera.',
         impact: 24.6,
         type: 'positive',
-        affected: ['NVIDIA', 'NASDAQ', 'AMD', 'TSMC'],
+        affected: ['NVIDIA', 'NASDAQ', 'AMD', 'TSMC', 'tech', 'S&P 500'],
         sources: [
             { title: 'CNBC - NVIDIA earnings shock Wall Street', url: 'https://www.cnbc.com/technology/' },
             { title: 'Bloomberg - NVIDIA joins $1 trillion club', url: 'https://www.bloomberg.com/markets/' },
@@ -540,12 +712,25 @@ const HistoricalEvents = [
         ]
     },
     {
+        date: 'Juli 2023',
+        title: 'Meta Threads Launch / Twitter-Konkurrenz',
+        description: 'Meta startet Threads als Twitter-Alternative und erreicht in 5 Tagen 100 Millionen Nutzer - schneller als jede andere App zuvor. Die Meta-Aktie steigt um ueber 150% seit Jahresbeginn nach dem katastrophalen 2022. Mark Zuckerberg vollzieht die Wende vom Metaverse-Fokus hin zu KI-Investitionen und Effizienzsteigerungen.',
+        impact: 11.2,
+        type: 'positive',
+        affected: ['Meta', 'NASDAQ', 'tech', 'S&P 500'],
+        sources: [
+            { title: 'Bloomberg - Threads fastest app to 100M users', url: 'https://www.bloomberg.com/technology/' },
+            { title: 'Reuters - Meta comeback story', url: 'https://www.reuters.com/technology/' },
+            { title: 'Handelsblatt - Zuckerbergs Wende', url: 'https://www.handelsblatt.com/technik/' }
+        ]
+    },
+    {
         date: 'Oktober 2023',
         title: 'Hamas-Israel Konflikt',
-        description: 'Am 7. Oktober greift die Hamas Israel an, es folgt eine massive militaerische Eskalation. Oelpreise steigen auf Sorge vor einer Ausweitung des Konflikts auf den gesamten Nahen Osten. Ruestungsaktien steigen, waehrend Airline- und Touristikwerte fallen. Geopolitische Risikoaufschlaege belasten die Maerkte.',
+        description: 'Am 7. Oktober greift die Hamas Israel an, es folgt eine massive militaerische Eskalation. Oelpreise steigen auf Sorge vor einer Ausweitung des Konflikts auf den gesamten Nahen Osten. Ruestungsaktien steigen, waehrend Airline- und Touristikwerte fallen. Der DAX verliert zeitweise ueber 3%. Gold erreicht neue Hoechststaende als sicherer Hafen.',
         impact: -2.8,
         type: 'negative',
-        affected: ['DAX', 'Oelpreis', 'Ruestungsaktien', 'Airlines'],
+        affected: ['DAX', 'Oelpreis', 'Airlines', 'Dow Jones', 'S&P 500'],
         sources: [
             { title: 'Tagesschau - Nahost-Krise eskaliert', url: 'https://www.tagesschau.de/wirtschaft/' },
             { title: 'Reuters - Oil surges on Middle East fears', url: 'https://www.reuters.com/markets/commodities/' },
@@ -554,11 +739,11 @@ const HistoricalEvents = [
     },
     {
         date: 'Dezember 2023',
-        title: 'Fed Zinspause Signal',
-        description: 'Fed-Chef Powell signalisiert auf der Dezember-Sitzung das Ende des Zinsanhebungszyklus und stellt Zinssenkungen fuer 2024 in Aussicht. Die Maerkte reagieren euphorisch: S&P 500 und NASDAQ springen auf neue Allzeithochs. Anleihenrenditen fallen stark, was besonders Wachstumswerte befluegelten.',
+        title: 'Fed Zinspause Signal - Jahresend-Rally',
+        description: 'Fed-Chef Powell signalisiert auf der Dezember-Sitzung das Ende des Zinsanhebungszyklus und stellt drei Zinssenkungen fuer 2024 in Aussicht. Die Maerkte reagieren euphorisch: S&P 500 und NASDAQ springen auf neue Allzeithochs. Anleihenrenditen fallen stark. Der S&P 500 schliesst das Jahr mit +24% ab, der NASDAQ mit +44%.',
         impact: 4.5,
         type: 'positive',
-        affected: ['S&P 500', 'NASDAQ', 'Dow Jones', 'Anleihen'],
+        affected: ['S&P 500', 'NASDAQ', 'Dow Jones', 'finance', 'tech'],
         sources: [
             { title: 'Bloomberg - Fed signals rate cuts ahead', url: 'https://www.bloomberg.com/markets/' },
             { title: 'Reuters - Wall Street surges on Fed pivot', url: 'https://www.reuters.com/markets/' },
@@ -566,12 +751,25 @@ const HistoricalEvents = [
         ]
     },
     {
-        date: '2024',
+        date: 'Januar 2024',
+        title: 'Bitcoin ETF Zulassung',
+        description: 'Die US-Boersenaufsicht SEC genehmigt erstmals Spot-Bitcoin-ETFs von BlackRock, Fidelity und anderen grossen Vermogensverwaltern. Bitcoin steigt auf ueber $48.000. Innerhalb weniger Wochen fliessen Milliarden Dollar in die neuen ETFs. Das Ereignis gilt als Meilenstein fuer die institutionelle Akzeptanz von Kryptowaehrungen.',
+        impact: 15.3,
+        type: 'positive',
+        affected: ['Bitcoin', 'Coinbase', 'NASDAQ', 'finance'],
+        sources: [
+            { title: 'Bloomberg - SEC approves Bitcoin ETFs', url: 'https://www.bloomberg.com/crypto/' },
+            { title: 'Reuters - Bitcoin ETFs see record inflows', url: 'https://www.reuters.com/technology/' },
+            { title: 'Handelsblatt - Bitcoin wird salonfaehig', url: 'https://www.handelsblatt.com/finanzen/' }
+        ]
+    },
+    {
+        date: 'Februar 2024',
         title: 'Magnificent 7 Rally',
-        description: 'Die sieben groessten US-Tech-Aktien (Apple, Microsoft, Alphabet, Amazon, NVIDIA, Meta, Tesla) dominieren die Marktentwicklung. Allein diese sieben Werte treiben den S&P 500 auf neue Rekorde, waehrend der breite Markt zurueckbleibt. KI-Fantasie und starke Quartalszahlen sind die Haupttreiber.',
+        description: 'Die sieben groessten US-Tech-Aktien (Apple, Microsoft, Alphabet, Amazon, NVIDIA, Meta, Tesla) dominieren die Marktentwicklung. NVIDIA ueberschreitet $2 Billionen Marktkapitalisierung und ueberholt Amazon und Alphabet. Allein die Magnificent 7 machen zeitweise ueber 30% des S&P 500 aus. Kritiker warnen vor Klumpenrisiken.',
         impact: 35.2,
         type: 'positive',
-        affected: ['Apple', 'Microsoft', 'NVIDIA', 'Meta', 'Amazon', 'S&P 500'],
+        affected: ['Apple', 'Microsoft', 'NVIDIA', 'Meta', 'Amazon', 'S&P 500', 'tech', 'AAPL', 'MSFT'],
         sources: [
             { title: 'Bloomberg - Magnificent Seven drive market', url: 'https://www.bloomberg.com/markets/' },
             { title: 'CNBC - Tech mega-caps hit new records', url: 'https://www.cnbc.com/technology/' },
@@ -579,25 +777,25 @@ const HistoricalEvents = [
         ]
     },
     {
-        date: '2024',
-        title: 'Geopolitische Spannungen / Taiwan',
-        description: 'Wachsende Spannungen zwischen China und Taiwan sowie neue Militaermanoever im Suedchinesischen Meer verunsichern die Maerkte. Chipaktien wie TSMC und ASML reagieren besonders empfindlich, da Taiwan ueber 60% der weltweiten Halbleiterproduktion kontrolliert. Handelsrestriktionen gegen China verschaerfen die Lage.',
-        impact: -4.3,
+        date: 'April 2024',
+        title: 'Tesla Krise - Massenentlassungen',
+        description: 'Tesla kuendigt den Abbau von ueber 10% der Belegschaft an (etwa 14.000 Stellen). Die Aktie hat seit Jahresbeginn bereits 40% verloren. Wachstumssorgen, Preiskampf bei Elektrofahrzeugen und Konkurrenz aus China belasten das Unternehmen. Elon Musks Fokus auf andere Projekte (X, SpaceX, xAI) wird kritisiert.',
+        impact: -12.5,
         type: 'negative',
-        affected: ['TSMC', 'ASML', 'NASDAQ', 'DAX', 'Halbleiter-Sektor'],
+        affected: ['Tesla', 'NASDAQ', 'S&P 500', 'tech'],
         sources: [
-            { title: 'Reuters - Taiwan tensions rattle chip stocks', url: 'https://www.reuters.com/technology/' },
-            { title: 'Handelsblatt - Geopolitik belastet Chipbranche', url: 'https://www.handelsblatt.com/technik/' },
-            { title: 'Bloomberg - China-Taiwan risk for markets', url: 'https://www.bloomberg.com/markets/' }
+            { title: 'Reuters - Tesla cuts 10% of workforce', url: 'https://www.reuters.com/business/autos/' },
+            { title: 'Bloomberg - Tesla faces EV competition', url: 'https://www.bloomberg.com/autos/' },
+            { title: 'Handelsblatt - Teslas schwieriges Jahr', url: 'https://www.handelsblatt.com/technik/' }
         ]
     },
     {
         date: 'Juni 2024',
         title: 'EZB erste Zinssenkung',
-        description: 'Die Europaeische Zentralbank senkt erstmals seit 2019 den Leitzins um 25 Basispunkte auf 4,25%. Die Entscheidung kommt nach Monaten sinkender Inflation in der Eurozone. Europaeische Aktien reagieren positiv, besonders Immobilien- und Bankenwerte profitieren. Der DAX klettert auf ein neues Jahreshoch.',
+        description: 'Die Europaeische Zentralbank senkt erstmals seit 2019 den Leitzins um 25 Basispunkte auf 4,25%. Die Entscheidung kommt nach Monaten sinkender Inflation in der Eurozone. Europaeische Aktien reagieren positiv, besonders Immobilien- und Bankenwerte profitieren. Der DAX klettert auf ein neues Jahreshoch ueber 18.500 Punkte.',
         impact: 3.1,
         type: 'positive',
-        affected: ['DAX', 'Euro Stoxx 50', 'Immobilienaktien', 'Bankenwerte'],
+        affected: ['DAX', 'Euro Stoxx 50', 'finance', 'Deutsche Bank'],
         sources: [
             { title: 'Tagesschau - EZB senkt Leitzins', url: 'https://www.tagesschau.de/wirtschaft/' },
             { title: 'Handelsblatt - Zinswende in Europa', url: 'https://www.handelsblatt.com/finanzen/' },
@@ -605,16 +803,68 @@ const HistoricalEvents = [
         ]
     },
     {
-        date: 'November 2024',
-        title: 'Trump Wahlsieg - Markteffekte',
-        description: 'Donald Trump gewinnt die US-Praesidentschaftswahl 2024. Die Maerkte reagieren gespalten: US-Aktien steigen auf Hoffnung auf Steuersenkungen und Deregulierung, waehrend europaeische und asiatische Maerkte auf moegliche Handelszölle und geopolitische Unsicherheit negativ reagieren. Der Dollar steigt stark an.',
-        impact: 2.5,
+        date: 'Juli 2024',
+        title: 'CrowdStrike-Ausfall - Globales IT-Chaos',
+        description: 'Ein fehlerhaftes Update der Cybersecurity-Firma CrowdStrike loest weltweit massive IT-Ausfaelle aus. Millionen Windows-Computer zeigen den "Blue Screen of Death". Fluglinien, Banken, Krankenhaeuser und Unternehmen sind stundenlang lahmgelegt. CrowdStrike-Aktien stuerzen um 11% ab, Microsoft verliert ebenfalls.',
+        impact: -3.8,
+        type: 'negative',
+        affected: ['CrowdStrike', 'Microsoft', 'NASDAQ', 'tech', 'MSFT'],
+        sources: [
+            { title: 'Bloomberg - Global IT outage chaos', url: 'https://www.bloomberg.com/technology/' },
+            { title: 'Reuters - CrowdStrike update crashes systems', url: 'https://www.reuters.com/technology/' },
+            { title: 'Tagesschau - Weltweite IT-Stoerungen', url: 'https://www.tagesschau.de/wirtschaft/' }
+        ]
+    },
+    {
+        date: 'August 2024',
+        title: 'Japan Carry-Trade Crash',
+        description: 'Die Bank of Japan hebt ueberraschend die Zinsen an. Der Yen wertet stark auf, was den beliebten Carry-Trade (Yen leihen, in hoeherverzinsliche Assets investieren) zusammenbrechen laesst. Der Nikkei stuerzt an einem Tag um 12,4% ab - der groesste Tagesverlust seit 1987. Globale Maerkte reagieren mit Panik, der VIX explodiert auf ueber 65.',
+        impact: -5.1,
+        type: 'negative',
+        affected: ['Nikkei', 'NASDAQ', 'Dow Jones', 'S&P 500', 'tech', 'finance'],
+        sources: [
+            { title: 'Bloomberg - Japan carry trade unwinds', url: 'https://www.bloomberg.com/markets/' },
+            { title: 'Reuters - Global markets in turmoil', url: 'https://www.reuters.com/markets/' },
+            { title: 'Handelsblatt - Nikkei-Crash erschuettert Boersen', url: 'https://www.handelsblatt.com/finanzen/' }
+        ]
+    },
+    {
+        date: 'September 2024',
+        title: 'Fed beginnt Zinssenkungszyklus',
+        description: 'Die Federal Reserve senkt erstmals seit 2020 die Zinsen um 50 Basispunkte - mehr als die erwarteten 25. Die Maerkte interpretieren dies als Zeichen wirtschaftlicher Sorgen, reagieren aber letztlich positiv. Gold erreicht neue Allzeithochs ueber $2.600. Der S&P 500 markiert im Monat neue Rekordstaende.',
+        impact: 2.8,
         type: 'positive',
-        affected: ['Dow Jones', 'S&P 500', 'Tesla', 'DAX', 'USD'],
+        affected: ['S&P 500', 'NASDAQ', 'Dow Jones', 'Gold', 'finance'],
+        sources: [
+            { title: 'Bloomberg - Fed cuts rates by 50 bps', url: 'https://www.bloomberg.com/markets/' },
+            { title: 'Reuters - Fed begins easing cycle', url: 'https://www.reuters.com/business/finance/' },
+            { title: 'FAZ - Fed senkt Zinsen deutlich', url: 'https://www.faz.net/aktuell/finanzen/' }
+        ]
+    },
+    {
+        date: 'November 2024',
+        title: 'Trump Wahlsieg - "Trump Trade"',
+        description: 'Donald Trump gewinnt die US-Praesidentschaftswahl 2024. US-Aktien steigen auf Hoffnung auf Steuersenkungen und Deregulierung. Bitcoin durchbricht erstmals $90.000 auf Erwartung kryptofreundlicher Politik. Tesla springt 15% nach oben. Europaeische und asiatische Maerkte reagieren auf moegliche Zoelle negativ. Der Dollar steigt stark.',
+        impact: 5.8,
+        type: 'positive',
+        affected: ['Dow Jones', 'S&P 500', 'Tesla', 'Bitcoin', 'DAX', 'finance', 'tech'],
         sources: [
             { title: 'Bloomberg - Trump win sparks market rally', url: 'https://www.bloomberg.com/markets/' },
             { title: 'Handelsblatt - Trump-Effekt an den Boersen', url: 'https://www.handelsblatt.com/finanzen/' },
             { title: 'Reuters - Wall Street surges after election', url: 'https://www.reuters.com/markets/' }
+        ]
+    },
+    {
+        date: 'Dezember 2024',
+        title: 'Bitcoin erreicht $100.000',
+        description: 'Bitcoin durchbricht erstmals die $100.000-Marke, angetrieben durch institutionelle Nachfrage via ETFs und die Erwartung kryptofreundlicher Regulierung unter Trump. Die Gesamtmarktkapitalisierung von Kryptowaehrungen ueberschreitet $3,5 Billionen. MicroStrategy-Aktien verdreifachen sich seit Jahresbeginn.',
+        impact: 45.2,
+        type: 'positive',
+        affected: ['Bitcoin', 'Coinbase', 'NASDAQ', 'finance', 'tech'],
+        sources: [
+            { title: 'Bloomberg - Bitcoin hits $100K milestone', url: 'https://www.bloomberg.com/crypto/' },
+            { title: 'Reuters - Crypto market reaches new highs', url: 'https://www.reuters.com/technology/' },
+            { title: 'Handelsblatt - Bitcoin-Rekord', url: 'https://www.handelsblatt.com/finanzen/' }
         ]
     }
 ];

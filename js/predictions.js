@@ -106,6 +106,17 @@ const PredictionEngine = {
         else if (sentiment.confidence > 0.4) confidenceLevel = 'medium';
         else confidenceLevel = 'low';
 
+        // Get top news sources with URLs for clickable links
+        const relevantNews = CurrentNews.filter(n => n.affectedStocks.includes(stockKey));
+        const topNewsSources = relevantNews
+            .sort((a, b) => Math.abs(b.score) - Math.abs(a.score))
+            .slice(0, 3)
+            .map(n => ({
+                title: n.title,
+                url: n.url || '',
+                sentiment: n.sentiment
+            }));
+
         return {
             stockKey: stockKey,
             stockName: stock.name + (stock.ticker ? ' (' + stock.ticker + ')' : ''),
@@ -116,7 +127,8 @@ const PredictionEngine = {
             confidenceLevel: confidenceLevel,
             reason: reason,
             newsCount: sentiment.newsCount,
-            timeframe: '7 Tage'
+            timeframe: '7 Tage',
+            topNewsSources: topNewsSources
         };
     },
 

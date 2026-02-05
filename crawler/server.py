@@ -479,6 +479,86 @@ def data_news():
 
 
 # ===================================================================
+# CUSTOM CRAWLER API ROUTES
+# ===================================================================
+
+@app.route("/api/crawler/custom", methods=["POST"])
+@login_required
+def crawler_custom_stock():
+    """Trigger a custom crawl for a specific stock."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "JSON body required"}), 400
+
+    ticker = data.get("ticker", "").strip().upper()
+    name = data.get("name", "").strip()
+    keywords = data.get("keywords", "").strip()
+
+    if not ticker:
+        return jsonify({"error": "Ticker is required"}), 400
+
+    if not name:
+        name = ticker
+
+    keyword_list = [k.strip() for k in keywords.split(",") if k.strip()] if keywords else [name, ticker]
+
+    try:
+        from crawler.stock_crawler import fetch_single_stock
+        from crawler.news_crawler import search_news_for_stock
+        from crawler.correlation import correlation_engine
+        from crawler.config import add_custom_stock
+
+        # Add to config (persists in DB)
+        stock_key = ticker.lower().replace(".", "_")
+        add_custom_stock(stock_key, name, ticker, keyword_list)
+
+        # Crawl stock data
+        db_session = db_manager.get_session()
+        stock_data = fetch_single_stock(ticker, db_session)
+
+        # Search news
+        news_count = search_news_for_stock(stock_key, keyword_list, db_session)
+
+        # Calculate correlations
+        correlations = correlation_engine.build_correlations(db_session, stock_key, days=90)
+
+        db_session.close()
+
+        return jsonify({
+            "success": True,
+            "stock_key": stock_key,
+            "ticker": ticker,
+            "name": name,
+            "price_records": len(stock_data.get("history", [])) if stock_data else 0,
+            "news_found": news_count,
+            "correlations": len(correlations)
+        })
+    except Exception as e:
+        logger.exception("Custom crawl failed")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/crawler/stocks", methods=["GET"])
+@login_required
+def crawler_list_stocks():
+    """List all stocks in the database."""
+    db_session = db_manager.get_session()
+    try:
+        from crawler.database import Stock
+        stocks = db_session.query(Stock).order_by(Stock.name).all()
+        return jsonify({
+            "stocks": [{
+                "key": s.key,
+                "name": s.name,
+                "ticker": s.ticker,
+                "last_updated": s.updated_at.isoformat() if s.updated_at else None
+            } for s in stocks]
+        })
+    finally:
+        db_session.close()
+
+
+# ===================================================================
 # PAGE ROUTES
 # ===================================================================
 

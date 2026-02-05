@@ -203,3 +203,69 @@ USER_AGENT = (
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/120.0.0.0 Safari/537.36"
 )
+
+
+def add_custom_stock(stock_key, name, ticker, keywords):
+    """
+    Add a custom stock to the STOCKS and STOCK_KEYWORDS dictionaries.
+    This allows dynamically adding user-specified stocks for tracking.
+
+    Parameters:
+        stock_key: Unique key for the stock (e.g., "aapl", "bmw_de")
+        name: Display name for the stock (e.g., "Apple Inc.")
+        ticker: Yahoo Finance ticker symbol (e.g., "AAPL", "BMW.DE")
+        keywords: List of search keywords for news matching
+
+    Note: This also persists the stock to the database via the db module.
+    """
+    # Determine currency and exchange from ticker
+    currency = "USD"
+    exchange = "NASDAQ"
+    if ".DE" in ticker.upper():
+        currency = "EUR"
+        exchange = "XETRA"
+    elif ".PA" in ticker.upper():
+        currency = "EUR"
+        exchange = "EURONEXT"
+    elif ".L" in ticker.upper():
+        currency = "GBP"
+        exchange = "LSE"
+    elif ".SW" in ticker.upper():
+        currency = "CHF"
+        exchange = "SIX"
+
+    # Add to STOCKS dict
+    STOCKS[stock_key] = {
+        "ticker": ticker,
+        "name": name,
+        "currency": currency,
+        "type": "stock",
+        "sector": "custom",
+        "exchange": exchange
+    }
+
+    # Add to STOCK_KEYWORDS
+    if stock_key not in STOCK_KEYWORDS:
+        STOCK_KEYWORDS[stock_key] = []
+    STOCK_KEYWORDS[stock_key].extend(keywords)
+
+    # Deduplicate keywords
+    STOCK_KEYWORDS[stock_key] = list(set(STOCK_KEYWORDS[stock_key]))
+
+    # Persist to database
+    from .database import db as db_manager
+    session = db_manager.get_session()
+    try:
+        db_manager.upsert_stock(
+            session,
+            key=stock_key,
+            ticker=ticker,
+            name=name,
+            currency=currency,
+            stock_type="stock",
+            sector="custom",
+            exchange=exchange
+        )
+        session.commit()
+    finally:
+        session.close()
