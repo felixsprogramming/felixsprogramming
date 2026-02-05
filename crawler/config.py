@@ -1,5 +1,5 @@
 """
-StockPulse Crawler - Configuration
+BBF-Trading Crawler - Configuration
 All tracked stocks, indices, news sources, and settings.
 NO LIMITS on data volume, article count, or number of tracked assets.
 """

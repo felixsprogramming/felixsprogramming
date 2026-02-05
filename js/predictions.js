@@ -1,5 +1,5 @@
 /* ========================================
-   StockPulse - Prediction Engine
+   BBF-Trading - Prediction Engine
    News-based stock prediction logic
    ======================================== */
 

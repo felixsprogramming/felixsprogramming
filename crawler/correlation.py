@@ -1,5 +1,5 @@
 """
-StockPulse - Reverse Correlation Engine
+BBF-Trading - Reverse Correlation Engine
 Detects significant stock price movements and finds matching news to explain them.
 Also feeds correlation strength back into the AI model's feature pipeline.
 """

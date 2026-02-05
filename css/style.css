@@ -1,5 +1,5 @@
 /* ========================================
-   StockPulse - Aktien & News Analyse
+   BBF-Trading - Aktien & News Analyse
    Main Stylesheet
    ======================================== */
 
@@ -221,6 +221,12 @@ body {
     box-shadow: var(--shadow-lg);
 }
 
+.index-card.active {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px var(--accent-blue), var(--shadow-lg);
+    background: var(--bg-card-hover);
+}
+
 .index-header {
     display: flex;
     justify-content: space-between;
@@ -401,6 +407,20 @@ body {
 
 .stock-row:last-child {
     border-bottom: none;
+}
+
+.stock-row-clickable {
+    cursor: pointer;
+}
+
+.stock-row-clickable:hover {
+    background: var(--bg-card-hover);
+    padding-left: 20px;
+}
+
+.stock-row-clickable.active {
+    background: rgba(59, 130, 246, 0.1);
+    border-left: 3px solid var(--accent-blue);
 }
 
 .stock-info {
@@ -900,6 +920,7 @@ body {
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     padding: 28px;
+    overflow: visible;
 }
 
 .sentiment-section h3 {
@@ -918,11 +939,12 @@ body {
 .gauge-container {
     text-align: center;
     width: 180px;
+    min-height: 170px;
 }
 
 .gauge-container canvas {
     width: 180px !important;
-    height: 110px !important;
+    height: 140px !important;
 }
 
 .gauge-label {
@@ -1030,6 +1052,62 @@ body {
 .timeline-impact.negative {
     background: rgba(239, 68, 68, 0.15);
     color: var(--danger);
+}
+
+.timeline-content h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0 0 6px 0;
+}
+
+.timeline-content p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0 0 8px 0;
+}
+
+.timeline-affected {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.timeline-affected .badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(99, 102, 241, 0.12);
+    color: var(--primary);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+}
+
+.timeline-sources {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.timeline-sources a {
+    font-size: 0.75rem;
+    color: var(--primary);
+    text-decoration: none;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(99, 102, 241, 0.08);
+    transition: var(--transition);
+}
+
+.timeline-sources a:hover {
+    background: rgba(99, 102, 241, 0.2);
+    text-decoration: underline;
 }
 
 /* Checkbox Label */

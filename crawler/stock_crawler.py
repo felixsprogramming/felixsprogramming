@@ -1,5 +1,5 @@
 """
-StockPulse Crawler - Stock Price Crawler
+BBF-Trading Crawler - Stock Price Crawler
 Fetches current and historical stock prices using yfinance.
 Stores all data in database - NO LIMITS on history depth or stock count.
 """

@@ -1,5 +1,5 @@
 """
-StockPulse Crawler - Sentiment Analysis
+BBF-Trading Crawler - Sentiment Analysis
 Keyword-based and pattern-based sentiment analysis for financial news.
 Supports German and English headlines.
 """

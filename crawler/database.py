@@ -1,5 +1,5 @@
 """
-StockPulse - Database Layer
+BBF-Trading - Database Layer
 SQLAlchemy-based storage for stock prices, news, and predictions.
 Designed for millions of rows with proper indexing.
 """

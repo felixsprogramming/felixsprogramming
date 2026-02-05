@@ -1,5 +1,5 @@
 """
-StockPulse - AI Prediction Model
+BBF-Trading - AI Prediction Model
 Machine learning model that predicts stock movements based on news sentiment
 and technical indicators. Trains on historical correlations, predicts on current news.
 

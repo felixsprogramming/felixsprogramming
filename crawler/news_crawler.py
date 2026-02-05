@@ -1,5 +1,5 @@
 """
-StockPulse Crawler - News Crawler
+BBF-Trading Crawler - News Crawler
 Fetches financial news from RSS feeds and web scraping.
 Stores ALL articles in database - NO LIMITS on article count.
 """

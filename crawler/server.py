@@ -1,5 +1,5 @@
 """
-StockPulse Web Server
+BBF-Trading Web Server
 Flask-based web server with authentication and admin API.
 """
 
@@ -566,7 +566,7 @@ def run_server(host: str = "0.0.0.0", port: int = 5000, debug: bool = False):
     finally:
         db_session.close()
 
-    logger.info("Starting StockPulse server on %s:%d (debug=%s)", host, port, debug)
+    logger.info("Starting BBF-Trading server on %s:%d (debug=%s)", host, port, debug)
     app.run(host=host, port=port, debug=debug)
 
 
@@ -576,7 +576,7 @@ if __name__ == "__main__":
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
-    parser = argparse.ArgumentParser(description="StockPulse Web Server")
+    parser = argparse.ArgumentParser(description="BBF-Trading Web Server")
     parser.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
     parser.add_argument("--port", type=int, default=5000, help="Bind port (default: 5000)")
     parser.add_argument("--debug", action="store_true", help="Enable Flask debug mode")

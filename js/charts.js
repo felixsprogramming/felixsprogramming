@@ -1,5 +1,5 @@
 /* ========================================
-   StockPulse - Chart Module
+   BBF-Trading - Chart Module
    Handles all chart rendering
    ======================================== */
 

@@ -1,5 +1,5 @@
 /* ========================================
-   StockPulse - Stock & News Data
+   BBF-Trading - Stock & News Data
    Loads live data from crawler JSON files,
    falls back to generated demo data if unavailable.
    ======================================== */
@@ -15,13 +15,37 @@ const LiveDataLoader = {
             if (!response.ok) throw new Error('No live data available');
             this.liveData = await response.json();
             this.isLive = true;
-            console.log('[StockPulse] Live data loaded:', this.liveData.lastUpdate);
-            return true;
+            console.log('[BBF-Trading] Live data loaded:', this.liveData.lastUpdate);
         } catch (e) {
-            console.log('[StockPulse] No live data found, using demo data.', e.message);
+            console.log('[BBF-Trading] No live data found, using demo data.', e.message);
             this.isLive = false;
             return false;
         }
+
+        // Also try to load recommendations from separate file (fallback)
+        try {
+            var recRes = await fetch('data/recommendations.json');
+            if (recRes.ok) {
+                var recData = await recRes.json();
+                var recList = null;
+                if (Array.isArray(recData)) {
+                    recList = recData;
+                } else if (recData && recData.recommendations) {
+                    recList = recData.recommendations;
+                }
+                if (recList && recList.length > 0) {
+                    // Use separate file if live_data has no recommendations
+                    if (!this.liveData.recommendations || this.liveData.recommendations.length === 0) {
+                        this.liveData.recommendations = recList;
+                        console.log('[BBF-Trading] Recommendations loaded from recommendations.json:', recList.length);
+                    }
+                }
+            }
+        } catch (e) {
+            // recommendations.json not yet generated, that is fine
+        }
+
+        return true;
     },
 
     applyToStockData() {
@@ -398,14 +422,201 @@ const CurrentNews = [
 
 // ---- Historical Events (always static) ----
 const HistoricalEvents = [
-    { date: 'Maerz 2020', title: 'COVID-19 Pandemie - Globaler Boersencrash', description: 'Die WHO erklaert COVID-19 zur Pandemie. Innerhalb von Wochen verlieren die globalen Boersen 30-40% ihres Wertes.', impact: '-38,8% (DAX in 30 Tagen)', type: 'negative' },
-    { date: 'November 2020', title: 'BioNTech/Pfizer Impfstoff - Markterholung', description: 'Die Nachricht ueber den wirksamen Impfstoff loest eine massive Rally aus.', impact: '+15,4% (DAX in 30 Tagen)', type: 'positive' },
-    { date: 'Januar 2021', title: 'GameStop Short Squeeze', description: 'Reddit-Kleinanleger treiben GameStop-Aktien um ueber 1.600% nach oben.', impact: '+1.600% (GME in 2 Wochen)', type: 'positive' },
-    { date: 'Februar 2022', title: 'Russland-Ukraine Krieg', description: 'Der Einmarsch Russlands in die Ukraine fuehrt zu einem Energiepreisschock.', impact: '-8,7% (DAX in 1 Woche)', type: 'negative' },
-    { date: 'Januar 2023', title: 'ChatGPT und der KI-Boom', description: 'Der Erfolg von ChatGPT loest einen beispiellosen KI-Investitionsboom aus.', impact: '+240% (NVIDIA in 12 Monaten)', type: 'positive' },
-    { date: 'Maerz 2023', title: 'Silicon Valley Bank Kollaps', description: 'Die SVB kollabiert nach einem Bank-Run.', impact: '-3,5% (Dow Jones in 1 Woche)', type: 'negative' },
-    { date: 'August 2024', title: 'Japan Carry-Trade Crash', description: 'Zinsanpassung der Bank of Japan fuehrt zu globalem Flash-Crash.', impact: '-12,4% (Nikkei an 1 Tag)', type: 'negative' },
-    { date: 'Januar 2025', title: 'KI-Integration im Mainstream', description: 'Grosse Unternehmen berichten ueber massive Produktivitaetssteigerungen durch KI-Tools.', impact: '+18% (NASDAQ in 3 Monaten)', type: 'positive' }
+    {
+        date: 'Maerz 2020',
+        title: 'COVID-19 Pandemie - Globaler Boersencrash',
+        description: 'Die WHO erklaert COVID-19 am 11. Maerz zur Pandemie. Lockdowns weltweit fuehren zu Panikverkaeufen. Der DAX verliert innerhalb von 30 Tagen fast 39%, der Dow Jones faellt um ueber 35%. Nachrichten ueber steigende Infektionszahlen und wirtschaftliche Stilllegungen treiben den Ausverkauf.',
+        impact: -38.8,
+        type: 'negative',
+        affected: ['DAX', 'Dow Jones', 'S&P 500', 'NASDAQ'],
+        sources: [
+            { title: 'Reuters - Maerkte im freien Fall', url: 'https://www.reuters.com/markets/' },
+            { title: 'Tagesschau - WHO erklaert Pandemie', url: 'https://www.tagesschau.de/wirtschaft/' },
+            { title: 'Handelsblatt - Boersencrash 2020', url: 'https://www.handelsblatt.com/finanzen/' }
+        ]
+    },
+    {
+        date: 'November 2020',
+        title: 'COVID-Erholung / Impfstoff-Rally',
+        description: 'BioNTech und Pfizer melden am 9. November eine Impfstoff-Wirksamkeit von 95%. Die Nachricht loest eine der staerksten Rallys der Boersengeschichte aus. Reise-, Freizeit- und Bankaktien springen zweistellig nach oben, da Anleger auf ein Ende der Pandemie setzen.',
+        impact: 15.4,
+        type: 'positive',
+        affected: ['DAX', 'Dow Jones', 'BioNTech', 'Lufthansa'],
+        sources: [
+            { title: 'Bloomberg - Vaccine Rally', url: 'https://www.bloomberg.com/markets/' },
+            { title: 'FAZ - BioNTech Impfstoff-Durchbruch', url: 'https://www.faz.net/aktuell/finanzen/' },
+            { title: 'Reuters - Markets surge on vaccine news', url: 'https://www.reuters.com/business/' }
+        ]
+    },
+    {
+        date: 'Januar 2021',
+        title: 'GameStop Short Squeeze',
+        description: 'Kleinanleger auf Reddit (r/WallStreetBets) koordinieren massive Kaeufe von GameStop-Aktien und treiben den Kurs um ueber 1.600% nach oben. Hedgefonds wie Melvin Capital erleiden Milliardenverluste. Die Ereignisse fuehren zu einer Debatte ueber Marktmanipulation und Trading-Apps wie Robinhood.',
+        impact: 1600,
+        type: 'positive',
+        affected: ['GameStop', 'AMC', 'NASDAQ', 'Dow Jones'],
+        sources: [
+            { title: 'Wall Street Journal - GameStop Frenzy', url: 'https://www.wsj.com/finance/stocks/' },
+            { title: 'Handelsblatt - Reddit vs. Wall Street', url: 'https://www.handelsblatt.com/finanzen/' },
+            { title: 'CNBC - Robinhood halts GameStop trading', url: 'https://www.cnbc.com/markets/' }
+        ]
+    },
+    {
+        date: 'November 2021',
+        title: 'Fed Zinswende Ankuendigung',
+        description: 'Fed-Chef Jerome Powell signalisiert das Ende der ultralockeren Geldpolitik und kuendigt ein beschleunigtes Tapering der Anleihenkaeufe an. Die Maerkte reagieren nervoes, insbesondere hoch bewertete Wachstumsaktien geraten unter Druck. Der Beginn des Zinsanhebungszyklus zeichnet sich ab.',
+        impact: -5.2,
+        type: 'negative',
+        affected: ['NASDAQ', 'S&P 500', 'Tech-Aktien'],
+        sources: [
+            { title: 'Reuters - Fed signals faster taper', url: 'https://www.reuters.com/business/finance/' },
+            { title: 'Bloomberg - Powell pivots on inflation', url: 'https://www.bloomberg.com/markets/' },
+            { title: 'FAZ - Fed leitet Zinswende ein', url: 'https://www.faz.net/aktuell/finanzen/' }
+        ]
+    },
+    {
+        date: 'Februar 2022',
+        title: 'Ukraine Krieg Beginn',
+        description: 'Am 24. Februar 2022 beginnt Russland die Invasion der Ukraine. Energiepreise explodieren, Gas- und Oelpreise erreichen Rekordstaende. Der DAX verliert ueber 8% in einer Woche, europaeische Maerkte sind besonders betroffen. Sanktionen gegen Russland verschaerfen die Energiekrise in Europa.',
+        impact: -8.7,
+        type: 'negative',
+        affected: ['DAX', 'Euro Stoxx 50', 'Oelpreis', 'Gaspreis'],
+        sources: [
+            { title: 'Tagesschau - Russland greift Ukraine an', url: 'https://www.tagesschau.de/wirtschaft/' },
+            { title: 'Handelsblatt - Energiekrise und Boersen', url: 'https://www.handelsblatt.com/finanzen/' },
+            { title: 'Reuters - Markets plunge on Ukraine invasion', url: 'https://www.reuters.com/markets/' }
+        ]
+    },
+    {
+        date: '2022',
+        title: 'Tech-Crash / NASDAQ Baerenmarkt',
+        description: 'Steigende Zinsen, hohe Inflation und das Ende des Pandemie-Booms fuehren zum schlimmsten Tech-Ausverkauf seit der Dotcom-Blase. Der NASDAQ verliert ueber 33% im Jahresverlauf. Meta faellt um 65%, Netflix um 51%. Die Aera des billigen Geldes ist vorbei, Wachstumsaktien werden massiv abgestraft.',
+        impact: -33.1,
+        type: 'negative',
+        affected: ['NASDAQ', 'Meta', 'Netflix', 'Tesla', 'Amazon'],
+        sources: [
+            { title: 'Bloomberg - Tech bear market deepens', url: 'https://www.bloomberg.com/technology/' },
+            { title: 'CNBC - Worst year for tech since 2008', url: 'https://www.cnbc.com/technology/' },
+            { title: 'Handelsblatt - Tech-Crash 2022', url: 'https://www.handelsblatt.com/technik/' }
+        ]
+    },
+    {
+        date: 'Maerz 2023',
+        title: 'Credit Suisse Kollaps / Bankenkrise',
+        description: 'Nach dem Zusammenbruch der Silicon Valley Bank (SVB) und der Signature Bank in den USA geraten auch europaeische Banken unter Druck. Die Credit Suisse, seit Jahren krisengeschuettelt, wird in einer Notfusion von der UBS uebernommen. Bankaktien weltweit stuerzen ab, Erinnerungen an 2008 werden wach.',
+        impact: -6.8,
+        type: 'negative',
+        affected: ['Credit Suisse', 'UBS', 'DAX', 'Deutsche Bank', 'Dow Jones'],
+        sources: [
+            { title: 'Reuters - Credit Suisse rescued by UBS', url: 'https://www.reuters.com/business/finance/' },
+            { title: 'FAZ - Bankenkrise 2023', url: 'https://www.faz.net/aktuell/finanzen/' },
+            { title: 'Tagesschau - SVB-Kollaps erschuettert Maerkte', url: 'https://www.tagesschau.de/wirtschaft/' }
+        ]
+    },
+    {
+        date: '2023',
+        title: 'KI-Rally / ChatGPT Hype',
+        description: 'ChatGPT erreicht im Januar 100 Millionen Nutzer und loest einen beispiellosen KI-Investitionsboom aus. Microsoft investiert $10 Milliarden in OpenAI, Google stellt Bard vor. Tech-Aktien mit KI-Bezug steigen massiv. NVIDIA wird zum groessten Profiteur des KI-Booms.',
+        impact: 240,
+        type: 'positive',
+        affected: ['NVIDIA', 'Microsoft', 'NASDAQ', 'Alphabet'],
+        sources: [
+            { title: 'Bloomberg - AI boom drives tech rally', url: 'https://www.bloomberg.com/technology/' },
+            { title: 'Handelsblatt - KI-Revolution an der Boerse', url: 'https://www.handelsblatt.com/technik/' },
+            { title: 'Reuters - Microsoft bets $10B on OpenAI', url: 'https://www.reuters.com/technology/' }
+        ]
+    },
+    {
+        date: 'Mai 2023',
+        title: 'NVIDIA Rekord-Quartalszahlen',
+        description: 'NVIDIA meldet fuer Q1 2024 einen Umsatzausblick von $11 Milliarden - 50% ueber den Analystenerwartungen. Die Aktie springt nachboerslich um 25% nach oben und treibt den gesamten Chipsektor mit. NVIDIA wird zum Symbol des KI-Booms und ueberschreitet spaeter die $1-Billionen-Marktkapitalisierung.',
+        impact: 24.6,
+        type: 'positive',
+        affected: ['NVIDIA', 'NASDAQ', 'AMD', 'TSMC'],
+        sources: [
+            { title: 'CNBC - NVIDIA earnings shock Wall Street', url: 'https://www.cnbc.com/technology/' },
+            { title: 'Bloomberg - NVIDIA joins $1 trillion club', url: 'https://www.bloomberg.com/markets/' },
+            { title: 'Handelsblatt - NVIDIA und der KI-Goldrausch', url: 'https://www.handelsblatt.com/technik/' }
+        ]
+    },
+    {
+        date: 'Oktober 2023',
+        title: 'Hamas-Israel Konflikt',
+        description: 'Am 7. Oktober greift die Hamas Israel an, es folgt eine massive militaerische Eskalation. Oelpreise steigen auf Sorge vor einer Ausweitung des Konflikts auf den gesamten Nahen Osten. Ruestungsaktien steigen, waehrend Airline- und Touristikwerte fallen. Geopolitische Risikoaufschlaege belasten die Maerkte.',
+        impact: -2.8,
+        type: 'negative',
+        affected: ['DAX', 'Oelpreis', 'Ruestungsaktien', 'Airlines'],
+        sources: [
+            { title: 'Tagesschau - Nahost-Krise eskaliert', url: 'https://www.tagesschau.de/wirtschaft/' },
+            { title: 'Reuters - Oil surges on Middle East fears', url: 'https://www.reuters.com/markets/commodities/' },
+            { title: 'FAZ - Boersen reagieren auf Nahost-Krieg', url: 'https://www.faz.net/aktuell/finanzen/' }
+        ]
+    },
+    {
+        date: 'Dezember 2023',
+        title: 'Fed Zinspause Signal',
+        description: 'Fed-Chef Powell signalisiert auf der Dezember-Sitzung das Ende des Zinsanhebungszyklus und stellt Zinssenkungen fuer 2024 in Aussicht. Die Maerkte reagieren euphorisch: S&P 500 und NASDAQ springen auf neue Allzeithochs. Anleihenrenditen fallen stark, was besonders Wachstumswerte befluegelten.',
+        impact: 4.5,
+        type: 'positive',
+        affected: ['S&P 500', 'NASDAQ', 'Dow Jones', 'Anleihen'],
+        sources: [
+            { title: 'Bloomberg - Fed signals rate cuts ahead', url: 'https://www.bloomberg.com/markets/' },
+            { title: 'Reuters - Wall Street surges on Fed pivot', url: 'https://www.reuters.com/markets/' },
+            { title: 'Handelsblatt - Fed-Wende befluegelten Boersen', url: 'https://www.handelsblatt.com/finanzen/' }
+        ]
+    },
+    {
+        date: '2024',
+        title: 'Magnificent 7 Rally',
+        description: 'Die sieben groessten US-Tech-Aktien (Apple, Microsoft, Alphabet, Amazon, NVIDIA, Meta, Tesla) dominieren die Marktentwicklung. Allein diese sieben Werte treiben den S&P 500 auf neue Rekorde, waehrend der breite Markt zurueckbleibt. KI-Fantasie und starke Quartalszahlen sind die Haupttreiber.',
+        impact: 35.2,
+        type: 'positive',
+        affected: ['Apple', 'Microsoft', 'NVIDIA', 'Meta', 'Amazon', 'S&P 500'],
+        sources: [
+            { title: 'Bloomberg - Magnificent Seven drive market', url: 'https://www.bloomberg.com/markets/' },
+            { title: 'CNBC - Tech mega-caps hit new records', url: 'https://www.cnbc.com/technology/' },
+            { title: 'FAZ - Die Macht der Magnificent Seven', url: 'https://www.faz.net/aktuell/finanzen/' }
+        ]
+    },
+    {
+        date: '2024',
+        title: 'Geopolitische Spannungen / Taiwan',
+        description: 'Wachsende Spannungen zwischen China und Taiwan sowie neue Militaermanoever im Suedchinesischen Meer verunsichern die Maerkte. Chipaktien wie TSMC und ASML reagieren besonders empfindlich, da Taiwan ueber 60% der weltweiten Halbleiterproduktion kontrolliert. Handelsrestriktionen gegen China verschaerfen die Lage.',
+        impact: -4.3,
+        type: 'negative',
+        affected: ['TSMC', 'ASML', 'NASDAQ', 'DAX', 'Halbleiter-Sektor'],
+        sources: [
+            { title: 'Reuters - Taiwan tensions rattle chip stocks', url: 'https://www.reuters.com/technology/' },
+            { title: 'Handelsblatt - Geopolitik belastet Chipbranche', url: 'https://www.handelsblatt.com/technik/' },
+            { title: 'Bloomberg - China-Taiwan risk for markets', url: 'https://www.bloomberg.com/markets/' }
+        ]
+    },
+    {
+        date: 'Juni 2024',
+        title: 'EZB erste Zinssenkung',
+        description: 'Die Europaeische Zentralbank senkt erstmals seit 2019 den Leitzins um 25 Basispunkte auf 4,25%. Die Entscheidung kommt nach Monaten sinkender Inflation in der Eurozone. Europaeische Aktien reagieren positiv, besonders Immobilien- und Bankenwerte profitieren. Der DAX klettert auf ein neues Jahreshoch.',
+        impact: 3.1,
+        type: 'positive',
+        affected: ['DAX', 'Euro Stoxx 50', 'Immobilienaktien', 'Bankenwerte'],
+        sources: [
+            { title: 'Tagesschau - EZB senkt Leitzins', url: 'https://www.tagesschau.de/wirtschaft/' },
+            { title: 'Handelsblatt - Zinswende in Europa', url: 'https://www.handelsblatt.com/finanzen/' },
+            { title: 'Reuters - ECB cuts rates for first time', url: 'https://www.reuters.com/business/finance/' }
+        ]
+    },
+    {
+        date: 'November 2024',
+        title: 'Trump Wahlsieg - Markteffekte',
+        description: 'Donald Trump gewinnt die US-Praesidentschaftswahl 2024. Die Maerkte reagieren gespalten: US-Aktien steigen auf Hoffnung auf Steuersenkungen und Deregulierung, waehrend europaeische und asiatische Maerkte auf moegliche Handelszölle und geopolitische Unsicherheit negativ reagieren. Der Dollar steigt stark an.',
+        impact: 2.5,
+        type: 'positive',
+        affected: ['Dow Jones', 'S&P 500', 'Tesla', 'DAX', 'USD'],
+        sources: [
+            { title: 'Bloomberg - Trump win sparks market rally', url: 'https://www.bloomberg.com/markets/' },
+            { title: 'Handelsblatt - Trump-Effekt an den Boersen', url: 'https://www.handelsblatt.com/finanzen/' },
+            { title: 'Reuters - Wall Street surges after election', url: 'https://www.reuters.com/markets/' }
+        ]
+    }
 ];
 
 // ---- Top Stocks (overwritten by live data if available) ----

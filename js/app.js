@@ -1,5 +1,5 @@
 /* ========================================
-   StockPulse - Main Application
+   BBF-Trading - Main Application
    Navigation, rendering, and UI logic
    ======================================== */
 
@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         LiveDataLoader.applyAIPredictions();
         LiveDataLoader.applyCorrelations();
         LiveDataLoader.applyRecommendations();
-        console.log('[StockPulse] Live crawler data applied successfully');
+        console.log('[BBF-Trading] Live crawler data applied successfully');
 
         // Show live indicator
         const brand = document.querySelector('.nav-brand');
@@ -124,7 +124,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (!list) return;
 
         list.innerHTML = TopStocks.map(stock => {
-            return '<div class="stock-row">' +
+            return '<div class="stock-row stock-row-clickable" data-stock="' + stock.name + '" data-ticker="' + stock.ticker + '">' +
                 '<div class="stock-info">' +
                     '<span class="name">' + stock.name + '</span>' +
                     '<span class="ticker">' + stock.ticker + '</span>' +
@@ -134,12 +134,27 @@ document.addEventListener('DOMContentLoaded', async function() {
                 '<span class="sentiment-badge ' + stock.sentiment + '">' + stock.sentimentLabel + '</span>' +
             '</div>';
         }).join('');
+
+        // Add click listeners to stock rows
+        list.querySelectorAll('.stock-row-clickable').forEach(row => {
+            row.addEventListener('click', function() {
+                const stockName = this.dataset.stock;
+
+                // Highlight the clicked row
+                list.querySelectorAll('.stock-row-clickable').forEach(r => r.classList.remove('active'));
+                this.classList.add('active');
+
+                // Navigate to predictions section
+                navigateTo('predictions');
+            });
+        });
     }
 
     // ---- Correlation ----
     function initCorrelation() {
         ChartModule.createCorrelationChart('correlation-chart', 'dax');
         renderNewsEvents('dax');
+        updateCorrelationStats('dax');
 
         document.getElementById('correlation-stock-selector').addEventListener('change', function() {
             ChartModule.createCorrelationChart('correlation-chart', this.value);
@@ -165,28 +180,48 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             return '<div class="news-event-item ' + event.sentiment + '">' +
                 '<div class="news-event-date">' + (index + 1) + '. ' + formatDate(event.date) + '</div>' +
-                '<div class="news-event-title">' + (event.url ? '<a href="' + event.url + '" target="_blank" rel="noopener">' + event.title + '</a>' : event.title) + '</div>' +
+                '<div class="news-event-title">' + (event.url && event.url !== '#' && event.url !== '/' ? '<a href="' + event.url + '" target="_blank" rel="noopener">' + event.title + '</a>' : event.title) + '</div>' +
                 '<div class="news-event-impact ' + impactClass + '">Kurseffekt: ' + impactStr + '</div>' +
             '</div>';
         }).join('');
     }
 
     function updateCorrelationStats(stockKey) {
-        const events = NewsEvents[stockKey] || [];
-        const positive = events.filter(e => e.sentiment === 'positive');
-        const negative = events.filter(e => e.sentiment === 'negative');
+        var events = NewsEvents[stockKey] || [];
+        if (events.length === 0) return;
 
-        const avgPositive = positive.length > 0
-            ? (positive.reduce((sum, e) => sum + e.impact, 0) / positive.length).toFixed(1)
-            : '0';
-        const avgNegative = negative.length > 0
-            ? (negative.reduce((sum, e) => sum + e.impact, 0) / negative.length).toFixed(1)
-            : '0';
+        var positiveImpacts = [];
+        var negativeImpacts = [];
 
-        const el1 = document.getElementById('positive-news-impact');
-        const el2 = document.getElementById('negative-news-impact');
-        if (el1) el1.textContent = '+' + avgPositive + '%';
-        if (el2) el2.textContent = avgNegative + '%';
+        events.forEach(function(e) {
+            if (e.impact) {
+                var val = parseFloat(e.impact);
+                if (!isNaN(val)) {
+                    if (val > 0) positiveImpacts.push(val);
+                    else negativeImpacts.push(val);
+                }
+            }
+        });
+
+        var avgPositive = positiveImpacts.length > 0
+            ? (positiveImpacts.reduce(function(a, b) { return a + b; }, 0) / positiveImpacts.length) : 0;
+        var avgNegative = negativeImpacts.length > 0
+            ? (negativeImpacts.reduce(function(a, b) { return a + b; }, 0) / negativeImpacts.length) : 0;
+
+        var el1 = document.getElementById('positive-news-impact');
+        var el2 = document.getElementById('negative-news-impact');
+        if (el1) el1.textContent = '+' + avgPositive.toFixed(1) + '%';
+        if (el2) el2.textContent = avgNegative.toFixed(1) + '%';
+
+        // Correlation score: % of events that have matching impact data
+        var explained = events.filter(function(e) { return e.impact; }).length;
+        var corrScore = Math.round((explained / events.length) * 100);
+        var el3 = document.getElementById('correlation-score');
+        if (el3) el3.textContent = corrScore + '%';
+
+        // Reaction time based on event density
+        var el4 = document.getElementById('reaction-time');
+        if (el4) el4.textContent = events.length > 8 ? '1-3 Tage' : events.length > 4 ? '2-5 Tage' : '3-7 Tage';
     }
 
     // ---- Predictions ----
@@ -220,7 +255,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                     '<span class="news-source">' + item.source + '</span>' +
                     '<span class="news-time">' + item.time + '</span>' +
                 '</div>' +
-                '<div class="news-title">' + (item.url ? '<a href="' + item.url + '" target="_blank" rel="noopener">' + item.title + '</a>' : item.title) + '</div>' +
+                '<div class="news-title">' + (item.url && item.url !== '#' && item.url !== '/' ? '<a href="' + item.url + '" target="_blank" rel="noopener">' + item.title + '</a>' : item.title) + '</div>' +
                 '<span class="news-sentiment-tag ' + item.sentiment + '">' +
                     sentimentLabel(item.sentiment) +
                 '</span>' +
@@ -316,11 +351,42 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (!timeline) return;
 
         timeline.innerHTML = HistoricalEvents.map(event => {
+            // Format impact value
+            const impactNum = typeof event.impact === 'number' ? event.impact : parseFloat(event.impact);
+            const impactPrefix = impactNum >= 0 ? '+' : '';
+            const impactStr = impactPrefix + impactNum.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+            const impactClass = impactNum >= 0 ? 'positive' : 'negative';
+
+            // Affected badges
+            let affectedHTML = '';
+            if (event.affected && event.affected.length > 0) {
+                affectedHTML = '<div class="timeline-affected">' +
+                    event.affected.map(function(a) {
+                        return '<span class="badge">' + a + '</span>';
+                    }).join('') +
+                '</div>';
+            }
+
+            // Sources links
+            let sourcesHTML = '';
+            if (event.sources && event.sources.length > 0) {
+                sourcesHTML = '<div class="timeline-sources">' +
+                    '<span style="font-size:0.75rem;color:var(--text-muted)">Quellen:</span> ' +
+                    event.sources.map(function(src) {
+                        return '<a href="' + src.url + '" target="_blank" rel="noopener">' + src.title + '</a>';
+                    }).join(' ') +
+                '</div>';
+            }
+
             return '<div class="timeline-item ' + event.type + '">' +
                 '<div class="timeline-date">' + event.date + '</div>' +
-                '<div class="timeline-title">' + event.title + '</div>' +
-                '<div class="timeline-desc">' + event.description + '</div>' +
-                '<span class="timeline-impact ' + event.type + '">' + event.impact + '</span>' +
+                '<div class="timeline-content">' +
+                    '<h4>' + event.title + '</h4>' +
+                    '<p>' + event.description + '</p>' +
+                    affectedHTML +
+                    '<div class="timeline-impact ' + impactClass + '">' + impactStr + '</div>' +
+                    sourcesHTML +
+                '</div>' +
             '</div>';
         }).join('');
     }
@@ -524,6 +590,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             const indexKey = this.dataset.index;
             const selector = document.getElementById('stock-selector');
             if (selector) {
+                // Update active state on cards
+                document.querySelectorAll('.index-card').forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+
                 selector.value = indexKey;
                 selector.dispatchEvent(new Event('change'));
 

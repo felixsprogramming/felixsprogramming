@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-StockPulse Crawler - Main Runner
+BBF-Trading Crawler - Main Runner
 Runs the full pipeline: crawl stocks, crawl news, train AI, generate predictions.
 
 Usage:
@@ -53,7 +53,7 @@ logging.basicConfig(
     ]
 )
 
-logger = logging.getLogger("StockPulse")
+logger = logging.getLogger("BBF-Trading")
 
 # Graceful shutdown
 running = True
@@ -348,7 +348,7 @@ def run_full_crawl(initial=False):
 def run_daemon():
     """Run the crawler in daemon mode (every CRAWL_INTERVAL seconds)."""
     interval = CRAWL_INTERVAL
-    logger.info("StockPulse Crawler starting in DAEMON mode")
+    logger.info("BBF-Trading Crawler starting in DAEMON mode")
     logger.info("Crawl interval: %d seconds (%d minutes)", interval, interval // 60)
     logger.info("Tracked stocks: %d", len(STOCKS))
 
@@ -365,7 +365,7 @@ def run_daemon():
         while running and time.time() < sleep_end:
             time.sleep(5)
 
-    logger.info("StockPulse Crawler stopped.")
+    logger.info("BBF-Trading Crawler stopped.")
 
 
 def show_stats():
@@ -375,7 +375,7 @@ def show_stats():
     accuracy = db.get_prediction_accuracy(session)
     session.close()
 
-    print("\n=== StockPulse Database Statistics ===")
+    print("\n=== BBF-Trading Database Statistics ===")
     print(f"  Tracked Stocks:    {stats['stocks']}")
     print(f"  Price Records:     {stats['price_records']:,}")
     print(f"  News Articles:     {stats['news_articles']:,}")
@@ -442,7 +442,7 @@ def show_stats():
 
 def main():
     parser = argparse.ArgumentParser(
-        description="StockPulse Web Crawler - Stocks, News & AI Predictions"
+        description="BBF-Trading Web Crawler - Stocks, News & AI Predictions"
     )
     parser.add_argument("--daemon", action="store_true", help="Run continuously every hour")
     parser.add_argument("--stocks", action="store_true", help="Only crawl stock prices")
